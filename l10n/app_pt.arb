@@ -1,0 +1,140 @@
+{
+  "@@locale": "pt",
+  "appName": "Polaridade",
+  "appTagline": "Atração, repulsão, vitória",
+
+  "menuPlay": "Jogar",
+  "menuHowToPlay": "Como jogar",
+  "menuSettings": "Ajustes",
+  "menuAbout": "Sobre",
+  "menuVersionLabel": "SOBRE · v{version}",
+  "@menuVersionLabel": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+
+  "difficultyTitle": "Escolha a dificuldade",
+  "difficultyApprentice": "Aprendiz",
+  "difficultyAdept": "Adepto",
+  "difficultyMaster": "Mestre",
+  "difficultyApprenticeDesc": "Para quem está aprendendo. A IA olha 1 jogada à frente.",
+  "difficultyAdeptDesc": "Para quem já entendeu a mecânica. A IA olha 3 jogadas à frente.",
+  "difficultyMasterDesc": "Para quem busca um desafio real. A IA olha 5 jogadas à frente.",
+  "difficultyLookahead1": "1 JOGADA À FRENTE",
+  "difficultyLookahead3": "3 JOGADAS À FRENTE",
+  "difficultyLookahead5": "5 JOGADAS À FRENTE",
+
+  "gameTurnLabel": "TURNO {current}/{total}",
+  "@gameTurnLabel": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "gameYourTurn": "Sua vez",
+  "gameAiTurn": "VEZ DA IA",
+  "gameThinking": "Pensando…",
+  "gameMagneticReaction": "REAÇÃO MAGNÉTICA",
+  "gamePlayer": "Você",
+  "gameAi": "Adversário",
+  "gameOnBoard": "{n} no tabuleiro",
+  "@gameOnBoard": {
+    "placeholders": {
+      "n": { "type": "int" }
+    }
+  },
+  "gameStockLabel": "Estoque",
+  "gameActionPlace": "Colocar",
+  "gameActionFlip": "Girar polaridade",
+  "gameChoosePolarity": "ESCOLHA A POLARIDADE",
+  "gamePieceSelected": "PEÇA SELECIONADA",
+  "gamePolarityPositive": "Positivo",
+  "gamePolarityNegative": "Negativo",
+  "gameInstructionPlace": "Toque numa casa para escolher onde colocar a peça.",
+  "gameInstructionFlip": "Toque em uma peça sua para girar a polaridade dela.",
+  "gameHint": "Dica",
+  "gameUndo": "Desfazer",
+  "gameCancel": "Cancelar",
+
+  "endGameLabel": "FIM DE PARTIDA",
+  "endVictory": "Vitória",
+  "endDefeat": "Derrota",
+  "endDraw": "Empate",
+  "endVictoryTagline": "O cosmos pendeu pro seu lado.",
+  "endDefeatTagline": "A gravidade não te favoreceu desta vez.",
+  "endDrawTagline": "As forças se equilibraram perfeitamente.",
+  "endStatYou": "VOCÊ",
+  "endStatTurns": "TURNOS",
+  "endStatAi": "IA",
+  "endNewGame": "Nova partida",
+  "endMenu": "Menu",
+  "endShareResult": "COMPARTILHAR RESULTADO",
+  "shareText": "Joguei Polaridade — placar final: Você {player} × {ai} IA. Baixe o jogo!",
+  "@shareText": {
+    "placeholders": {
+      "player": { "type": "int" },
+      "ai": { "type": "int" }
+    }
+  },
+
+  "pauseTitle": "Pausado",
+  "pauseResume": "Continuar",
+  "pauseRestart": "Reiniciar partida",
+  "pauseQuit": "Abandonar",
+  "quitConfirmTitle": "Sair sem terminar?",
+  "quitConfirmBody": "Sua partida será perdida.",
+  "quitConfirmYes": "Sair",
+  "quitConfirmNo": "Continuar jogando",
+
+  "rewardedHintBody": "Assista um vídeo curto para ver a jogada que o Mestre faria agora.",
+  "rewardedUndoBody": "Assista um vídeo curto para desfazer sua última jogada.",
+  "rewardedWatch": "Assistir",
+  "rewardedNotNow": "Agora não",
+
+  "settingsTitle": "Ajustes",
+  "settingsSectionGameplay": "Jogabilidade",
+  "settingsSectionSound": "Som e vibração",
+  "settingsSectionLanguage": "Idioma",
+  "settingsSectionAbout": "Sobre",
+  "settingsSound": "Som",
+  "settingsVibration": "Vibração",
+  "settingsLanguage": "Idioma",
+  "settingsReducedMotion": "Animação reduzida",
+  "settingsColorblind": "Modo daltônico",
+  "settingsAnimationSpeed": "Velocidade da animação",
+  "settingsAnimationNormal": "Normal",
+  "settingsAnimationFast": "Rápida",
+  "settingsPrivacy": "Privacidade",
+  "settingsTerms": "Termos",
+  "settingsCredits": "Créditos",
+  "settingsVersion": "Versão {version}",
+  "@settingsVersion": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+
+  "tutorialSkip": "PULAR",
+  "tutorialStep": "PASSO {current} DE {total}",
+  "@tutorialStep": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "tutorialNext": "Próximo",
+  "tutorialPlayFirstGame": "Jogar minha primeira partida",
+  "tutorialStep1Title": "Coloque uma peça",
+  "tutorialStep1Body": "Toque em uma casa vazia e escolha a polaridade: ⊕ positiva ou ⊖ negativa.",
+  "tutorialStep2Title": "Atração",
+  "tutorialStep2Body": "Polaridades opostas se atraem. Peças vizinhas se aproximam do epicentro.",
+  "tutorialStep3Title": "Repulsão",
+  "tutorialStep3Body": "Polaridades iguais se repelem. Peças vizinhas são empurradas para longe — e podem empurrar outras numa cadeia.",
+  "tutorialStep4Title": "Destruição",
+  "tutorialStep4Body": "Peças empurradas para fora do tabuleiro são removidas permanentemente.",
+  "tutorialStep5Title": "Vencer",
+  "tutorialStep5Body": "Sobreviva 10 turnos com mais peças no tabuleiro que o adversário — ou elimine todas as peças dele primeiro.",
+
+  "howToPlayTitle": "Como jogar"
+}
