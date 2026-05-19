@@ -109,6 +109,46 @@ void main() {
     });
   });
 
+  group('GameLogic — Stalemate por inércia', () {
+    test('4 flips consecutivos sem efeito → partida termina', () {
+      // Coloca 2 peças muito distantes: (0,0) player ⊕ e (4,4) AI ⊖.
+      // Distância >= 4 — alcance máximo é 2, então não interagem.
+      // Depois força flips alternando — devem todos ser sem efeito.
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 0, col: 0, polarity: Polarity.plus))!.newState;
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 4, col: 4, polarity: Polarity.minus))!.newState;
+      // Agora flips: player flippa (0,0), AI flippa (4,4), 4 vezes.
+      // Cada flip deve ter consecutiveEmptyActions incrementado.
+      expect(s.consecutiveEmptyActions, 0); // placements zeraram
+      s = GameLogic.applyAction(s, const FlipAction(row: 0, col: 0))!.newState;
+      expect(s.consecutiveEmptyActions, 1);
+      s = GameLogic.applyAction(s, const FlipAction(row: 4, col: 4))!.newState;
+      expect(s.consecutiveEmptyActions, 2);
+      s = GameLogic.applyAction(s, const FlipAction(row: 0, col: 0))!.newState;
+      expect(s.consecutiveEmptyActions, 3);
+      s = GameLogic.applyAction(s, const FlipAction(row: 4, col: 4))!.newState;
+      // 4ª ação vazia: partida deve ter terminado
+      expect(s.isGameOver, isTrue);
+    });
+
+    test('placement reseta o contador', () {
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 0, col: 0, polarity: Polarity.plus))!.newState;
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 4, col: 4, polarity: Polarity.minus))!.newState;
+      // Flip sem efeito (peças isoladas)
+      s = GameLogic.applyAction(s, const FlipAction(row: 0, col: 0))!.newState;
+      expect(s.consecutiveEmptyActions, 1);
+      // Placement nova → reseta
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 2, col: 2, polarity: Polarity.minus))!.newState;
+      expect(s.consecutiveEmptyActions, 0);
+    });
+  });
+
   group('GameState — primeiro jogador aleatório', () {
     test('newGame sem startingPlayer pode dar qualquer um dos dois', () {
       var sawPlayer = false;

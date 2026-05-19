@@ -35,9 +35,13 @@ import '../models/piece.dart';
 /// 5. **Ressonância:** destruir 2+ peças do oponente em uma onda → +1
 ///    no estoque (3+ → +2), respeitando teto de 10.
 ///
-/// 6. **Fim por stalemate:** ambos estoques zerados E nenhuma peça com
-///    vizinho a ≤ alcance máximo → partida termina, decide por maior
-///    onBoard com desempate por destroyed.
+/// 6. **Fim por stalemate (duas vias):**
+///    - **Geométrico (rápido):** ambos estoques zerados E nenhuma peça com
+///      vizinho a ≤ alcance máximo.
+///    - **Por inércia (robusto):** 4 ações consecutivas sem nenhum evento
+///      de Move ou Destroy (peças isoladas + flips inúteis). Pega o caso
+///      em que ainda há estoque mas ninguém consegue causar reação.
+///    Decide por maior onBoard, desempate por destroyed.
 ///
 /// 7. **Primeiro jogador aleatório:** `GameState.newGame()` sorteia 50/50.
 class GameLogic {
@@ -263,6 +267,15 @@ class GameLogic {
     // Fim de partida
     final actionsTaken = state.actionsTaken + 1;
     final other = owner.opponent;
+
+    // Contador de stalemate: flip sem efeito magnético (sem Move ou Destroy)
+    // incrementa; toda placement zera (peça nova é sempre progresso, mesmo
+    // sem reação imediata). Detecta "ficar girando polaridades sem nada
+    // acontecer" — sintoma do final de jogo travado.
+    final hadEffect = events.any((e) => e is MoveEvent || e is DestroyEvent);
+    final isEmptyAction = action is FlipAction && !hadEffect;
+    final newEmptyCount = isEmptyAction ? state.consecutiveEmptyActions + 1 : 0;
+
     PieceOwner? winner;
     bool gameEnded = false;
 
@@ -275,7 +288,12 @@ class GameLogic {
     } else if (actionsTaken >= GameState.maxActions) {
       gameEnded = true;
       winner = _decideTiedWinner(onBoard, destroyed);
+    } else if (newEmptyCount >= GameState.stalemateThreshold) {
+      // Stalemate por inércia: N ações consecutivas sem efeito
+      gameEnded = true;
+      winner = _decideTiedWinner(onBoard, destroyed);
     } else if (_isStalemate(board, stock)) {
+      // Stalemate "geométrico" (versão rápida): ambos estoque 0 e nenhuma peça com vizinho
       gameEnded = true;
       winner = _decideTiedWinner(onBoard, destroyed);
     }
@@ -287,6 +305,7 @@ class GameLogic {
       stock: stock,
       onBoard: onBoard,
       destroyed: destroyed,
+      consecutiveEmptyActions: newEmptyCount,
       actionsTaken: actionsTaken,
       currentPlayer: other,
       winner: winner,

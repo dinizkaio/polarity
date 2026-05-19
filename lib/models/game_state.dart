@@ -17,6 +17,12 @@ class GameState {
   /// Critério de desempate justo: quem destruiu mais peças do outro vence.
   final Map<PieceOwner, int> destroyed;
 
+  /// Contador de ações consecutivas que não produziram movimento ou destruição
+  /// (i.e. peça colocada longe sem reação, ou flip de peça isolada). Quando
+  /// atinge [stalemateThreshold], partida termina por stalemate.
+  final int consecutiveEmptyActions;
+  static const int stalemateThreshold = 4;
+
   final int actionsTaken;
   final PieceOwner currentPlayer;
   final PieceOwner? winner;
@@ -26,6 +32,7 @@ class GameState {
     required this.stock,
     required this.onBoard,
     required this.destroyed,
+    required this.consecutiveEmptyActions,
     required this.actionsTaken,
     required this.currentPlayer,
     required this.winner,
@@ -41,6 +48,7 @@ class GameState {
       stock: {PieceOwner.player: stockSize, PieceOwner.ai: stockSize},
       onBoard: {PieceOwner.player: 0, PieceOwner.ai: 0},
       destroyed: {PieceOwner.player: 0, PieceOwner.ai: 0},
+      consecutiveEmptyActions: 0,
       actionsTaken: 0,
       currentPlayer: firstPlayer,
       winner: null,
@@ -52,6 +60,7 @@ class GameState {
     Map<PieceOwner, int>? stock,
     Map<PieceOwner, int>? onBoard,
     Map<PieceOwner, int>? destroyed,
+    int? consecutiveEmptyActions,
     int? actionsTaken,
     PieceOwner? currentPlayer,
     PieceOwner? winner,
@@ -61,6 +70,7 @@ class GameState {
       stock: stock ?? this.stock,
       onBoard: onBoard ?? this.onBoard,
       destroyed: destroyed ?? this.destroyed,
+      consecutiveEmptyActions: consecutiveEmptyActions ?? this.consecutiveEmptyActions,
       actionsTaken: actionsTaken ?? this.actionsTaken,
       currentPlayer: currentPlayer ?? this.currentPlayer,
       winner: winner ?? this.winner,
