@@ -4,6 +4,16 @@
 
 5×5, single-player vs IA (3 níveis), 1–3 min por partida. Flutter / Dart, com i18n PT/EN/ES.
 
+## v0.2.0 — diferenças em relação ao briefing original
+
+- **`pubspec.yaml` já está versionado** com todas as deps (provider, hive, google_fonts, google_mobile_ads, in_app_purchase).
+- **Localizações são hand-rolled** em `lib/l10n/strings_*.dart`. Não precisa rodar `flutter gen-l10n` — os `.arb` em `l10n/` ficam como documentação. Para adicionar string nova: edite os 3 arquivos `strings_*.dart` e acrescente o getter em `app_localizations.dart`.
+- **Física revisada**: atração agora produz movimento (passagem orbital). Adicionados sistema de carga e ressonância. Desempate por destruições.
+- **Monetização cabeada**: `lib/services/ads_service.dart` (intersticial + rewarded) e `lib/services/purchases_service.dart` (IAP remove_ads). Antes do release, trocar os IDs de teste no `ads_service.dart` pelos IDs reais de produção e configurar produto `remove_ads` na Play Console / App Store Connect (preços sugeridos: R$ 9,90 / US$ 1.99 / €1.99).
+- **Design study preservado** em `design_study/` (HTML/JSX/CSS do designer + spec canônica).
+
+Ao rodar `flutter create . --platforms=android,ios` o Flutter cria android/, ios/ etc — ele não vai mexer no pubspec.yaml já existente nem nos arquivos em `lib/`. Confirme o nome do projeto (`polaridade`) e o org (`app.polaridade`).
+
 ---
 
 ## Instruções para o Claude Code (subir no GitHub)
