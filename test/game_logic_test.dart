@@ -8,7 +8,7 @@ import 'package:polaridade/models/piece.dart';
 void main() {
   group('GameLogic — Place', () {
     test('coloca peça em casa vazia, decrementa estoque', () {
-      final state = GameState.newGame();
+      final state = GameState.newGame(startingPlayer: PieceOwner.player);
       final r = GameLogic.applyAction(
         state,
         const PlaceAction(row: 2, col: 2, polarity: Polarity.plus),
@@ -24,7 +24,7 @@ void main() {
     });
 
     test('Place em casa ocupada retorna null', () {
-      var state = GameState.newGame();
+      var state = GameState.newGame(startingPlayer: PieceOwner.player);
       var r = GameLogic.applyAction(
         state,
         const PlaceAction(row: 0, col: 0, polarity: Polarity.plus),
@@ -43,11 +43,11 @@ void main() {
     });
   });
 
-  group('GameLogic — Atração clássica', () {
-    test('atração solo: peça vizinha oposta vai pro epicentro → destruída', () {
-      // ⊕ player em (2,1). IA coloca ⊖ em (2,2): a peça em (2,1) cairia
-      // sobre o epicentro (2,2) → destruída.
-      var s = GameState.newGame();
+  group('GameLogic — Atração orbital', () {
+    test('solo: peça oposta atravessa o epicentro pro lado simétrico', () {
+      // ⊕ player em (2,1). IA epicentro ⊖ em (2,2): a peça em (2,1)
+      // ATRAVESSA o epicentro pra posição simétrica (2,3).
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
       s = GameLogic.applyAction(
           s, const PlaceAction(row: 2, col: 1, polarity: Polarity.plus))!.newState;
       final r = GameLogic.applyAction(
@@ -56,47 +56,78 @@ void main() {
       );
       expect(r, isNotNull);
       final ns = r!.newState;
-      // Peça do jogador destruída, epicentro fica
+      // Peça atravessou pro outro lado
       expect(ns.pieceAt(2, 1), isNull);
       expect(ns.pieceAt(2, 2)?.polarity, Polarity.minus);
-      expect(ns.destroyed[PieceOwner.ai], 1);
+      expect(ns.pieceAt(2, 3)?.polarity, Polarity.plus);
+      expect(ns.pieceAt(2, 3)?.owner, PieceOwner.player);
+      // Charge +1 por sobreviver à força
+      expect(ns.pieceAt(2, 3)?.charge, 1);
+      // Nenhuma destruição
       final hasDestroy = r.events.any((e) => e is DestroyEvent);
-      expect(hasDestroy, isTrue);
+      expect(hasDestroy, isFalse);
     });
 
-    test('atração em par oposto: ambas destruídas, epicentro vive', () {
-      // ⊕ em (2,1) e (2,3). IA epicentro ⊖ em (2,2). Vizinhos E e W são pares.
-      var s = GameState.newGame();
+    test('solo: simétrica com wrap toroidal', () {
+      // ⊕ em (0,1). IA epicentro ⊖ em (0,0). Posição simétrica = (0,-1) = wrap (0,4).
+      // Peça vai pra (0,4).
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 0, col: 1, polarity: Polarity.plus))!.newState;
+      final r = GameLogic.applyAction(
+        s,
+        const PlaceAction(row: 0, col: 0, polarity: Polarity.minus),
+      );
+      expect(r, isNotNull);
+      final ns = r!.newState;
+      expect(ns.pieceAt(0, 1), isNull);
+      expect(ns.pieceAt(0, 4)?.polarity, Polarity.plus);
+    });
+
+    test('par oposto: ambas tentam atravessar e se aniquilam', () {
+      // ⊕ em (2,1) e (2,3). IA epicentro ⊖ em (2,2). Ambas tentariam trocar
+      // de lado (cada uma pra onde a outra está) → colidem → ambas destruídas.
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
       s = GameLogic.applyAction(
           s, const PlaceAction(row: 2, col: 1, polarity: Polarity.plus))!.newState;
-      // IA: peça neutra longe
       s = GameLogic.applyAction(
           s, const PlaceAction(row: 0, col: 0, polarity: Polarity.minus))!.newState;
-      // Player coloca em (2,3)
       s = GameLogic.applyAction(
           s, const PlaceAction(row: 2, col: 3, polarity: Polarity.plus))!.newState;
-      // IA epicentro ⊖ em (2,2)
       final r = GameLogic.applyAction(
         s,
         const PlaceAction(row: 2, col: 2, polarity: Polarity.minus),
       );
       expect(r, isNotNull);
       final ns = r!.newState;
-      // Ambas player destruídas
       expect(ns.pieceAt(2, 1), isNull);
       expect(ns.pieceAt(2, 3), isNull);
       expect(ns.pieceAt(2, 2)?.polarity, Polarity.minus);
       expect(ns.destroyed[PieceOwner.ai], 2);
-      // Ressonância: +1 peça no estoque da IA
       final hasResonance = r.events.any((e) => e is ResonanceEvent);
       expect(hasResonance, isTrue);
+    });
+  });
+
+  group('GameState — primeiro jogador aleatório', () {
+    test('newGame sem startingPlayer pode dar qualquer um dos dois', () {
+      var sawPlayer = false;
+      var sawAi = false;
+      for (int i = 0; i < 100; i++) {
+        final s = GameState.newGame();
+        if (s.currentPlayer == PieceOwner.player) sawPlayer = true;
+        if (s.currentPlayer == PieceOwner.ai) sawAi = true;
+        if (sawPlayer && sawAi) break;
+      }
+      expect(sawPlayer, isTrue);
+      expect(sawAi, isTrue);
     });
   });
 
   group('GameLogic — Repulsão toroidal', () {
     test('repulsão na borda faz wrap pro outro lado se destino vazio', () {
       // ⊕ em (0,0). Coloca ⊕ em (0,1): repulsão de (0,0) em direção W = (0,-1) = wrap (0,4).
-      var s = GameState.newGame();
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
       s = GameLogic.applyAction(
           s, const PlaceAction(row: 0, col: 0, polarity: Polarity.plus))!.newState;
       s = GameLogic.applyAction(
@@ -112,34 +143,11 @@ void main() {
       // Destino vazio — nenhuma destruição
       expect(ns.destroyed[PieceOwner.player], 0);
     });
-
-    test('repulsão com destino ocupado → repelida morre, destino sobrevive', () {
-      // ⊕ em (2,2) (player). IA neutra longe.
-      // Player ⊕ em (2,3): repulsão de (2,2) → (2,1) vazia → move. Não testa o caso.
-      // Vou armar o caso: ⊕ em (2,1), depois ⊕ em (2,2). Repulsão de (2,1) (mesma polaridade)
-      // direção W → (2,0). (2,0) está vazia → move. Hmm ainda não testa.
-      //
-      // Cenário com destino ocupado: ⊕ em (2,1), ⊕ em (2,0) (já existente).
-      // Quando se coloca outra ⊕ em (2,2), repulsão de (2,1) vai pra (2,0) que está ocupada.
-      // (2,1) é repelida, mas destino (2,0) tem peça → (2,1) destruída, (2,0) sobrevive.
-      var s = GameState.newGame();
-      s = GameLogic.applyAction(
-          s, const PlaceAction(row: 2, col: 0, polarity: Polarity.plus))!.newState;
-      s = GameLogic.applyAction(
-          s, const PlaceAction(row: 4, col: 4, polarity: Polarity.minus))!.newState;
-      s = GameLogic.applyAction(
-          s, const PlaceAction(row: 2, col: 1, polarity: Polarity.plus))!.newState;
-      // (2,0) e (2,1) ambas player ⊕. Atenção: ao colocar (2,1), repulsão de (2,0) → (2,-1) = wrap (2,4) vazia → move.
-      // Vou checar e ajustar o cenário se necessário.
-      // Após esses 3 places: (2,0)=null (foi movida pro wrap), (2,1) = nova peça, (2,4) = peça que era (2,0).
-      // Hmm OK, vou simplificar: monta direto pelo applyAction.
-      expect(s.pieceAt(2, 1)?.polarity, Polarity.plus);
-    });
   });
 
   group('GameLogic — Carga', () {
     test('peça acumula charge ao sobreviver a uma força', () {
-      var s = GameState.newGame();
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
       s = GameLogic.applyAction(
           s, const PlaceAction(row: 2, col: 2, polarity: Polarity.plus))!.newState;
       s = GameLogic.applyAction(
@@ -152,7 +160,7 @@ void main() {
 
   group('GameLogic — Ações legais', () {
     test('jogo inicial: 25 × 2 polaridades = 50 places, 0 flips', () {
-      final s = GameState.newGame();
+      final s = GameState.newGame(startingPlayer: PieceOwner.player);
       final actions = GameLogic.legalActions(s);
       final places = actions.whereType<PlaceAction>().length;
       final flips = actions.whereType<FlipAction>().length;
@@ -161,7 +169,7 @@ void main() {
     });
 
     test('após 1 peça do jogador: IA tem 48 places + 0 flips', () {
-      var s = GameState.newGame();
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
       s = GameLogic.applyAction(
           s, const PlaceAction(row: 2, col: 2, polarity: Polarity.plus))!.newState;
       final actions = GameLogic.legalActions(s);

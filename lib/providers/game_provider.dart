@@ -37,7 +37,17 @@ class GameProvider extends ChangeNotifier {
 
   GameProvider({AiDifficulty difficulty = AiDifficulty.apprentice})
       : _difficulty = difficulty,
-        _ai = AiEngine();
+        _ai = AiEngine() {
+    _bootstrapTurn();
+  }
+
+  /// Se IA começou na partida (sorteio inicial), agenda o turno dela.
+  void _bootstrapTurn() {
+    if (_state.currentPlayer == PieceOwner.ai && !_state.isGameOver) {
+      _phase = GamePhase.aiThinking;
+      _scheduleAiTurn();
+    }
+  }
 
   GameState get state => _state;
   GamePhase get phase => _phase;
@@ -58,6 +68,7 @@ class GameProvider extends ChangeNotifier {
     _pendingEvents = const [];
     _selectedEmptyCell = null;
     _selectedPiece = null;
+    _bootstrapTurn();
     notifyListeners();
   }
 

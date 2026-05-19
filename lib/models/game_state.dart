@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'piece.dart';
 
 /// Estado imutável do jogo. `copyWith` para evoluir; nunca mutar in-place.
@@ -29,15 +31,21 @@ class GameState {
     required this.winner,
   });
 
-  factory GameState.newGame() => GameState._(
-    board: List.generate(boardSize, (_) => List<Piece?>.filled(boardSize, null, growable: false)),
-    stock: {PieceOwner.player: stockSize, PieceOwner.ai: stockSize},
-    onBoard: {PieceOwner.player: 0, PieceOwner.ai: 0},
-    destroyed: {PieceOwner.player: 0, PieceOwner.ai: 0},
-    actionsTaken: 0,
-    currentPlayer: PieceOwner.player,
-    winner: null,
-  );
+  /// Cria nova partida. Primeiro jogador é aleatório (50/50) — "a gravidade
+  /// decide". Pra testes determinísticos, passar [startingPlayer] explícito.
+  factory GameState.newGame({PieceOwner? startingPlayer, Random? rng}) {
+    final firstPlayer = startingPlayer ??
+        ((rng ?? Random()).nextBool() ? PieceOwner.player : PieceOwner.ai);
+    return GameState._(
+      board: List.generate(boardSize, (_) => List<Piece?>.filled(boardSize, null, growable: false)),
+      stock: {PieceOwner.player: stockSize, PieceOwner.ai: stockSize},
+      onBoard: {PieceOwner.player: 0, PieceOwner.ai: 0},
+      destroyed: {PieceOwner.player: 0, PieceOwner.ai: 0},
+      actionsTaken: 0,
+      currentPlayer: firstPlayer,
+      winner: null,
+    );
+  }
 
   GameState copyWith({
     List<List<Piece?>>? board,

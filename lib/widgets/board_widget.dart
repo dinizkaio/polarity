@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -32,6 +34,8 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
   ForceEvent? _currentForce;
   Cell? _chargeFlashCell;
   ResonanceEvent? _activeResonance;
+  final Map<int, _Explosion> _explosions = {};
+  int _explosionIdCounter = 0;
 
   @override
   void initState() {
@@ -133,8 +137,9 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
         await _wait((200 * mult).round());
         setState(() => _shakingCell = null);
 
-      case DestroyEvent(:final from):
+      case DestroyEvent(:final from, :final piece):
         HapticsHelper.heavy(settings);
+        _spawnExplosion(from, _pieceColor(piece));
         setState(() => _displayBoard[from.row][from.col] = null);
         await _wait((500 * mult).round());
 
@@ -167,6 +172,28 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
 
   Future<void> _wait(int ms) async {
     await Future.delayed(Duration(milliseconds: ms));
+  }
+
+  /// Cor pra animação de explosão — usa o halo da polaridade pra coerência.
+  Color _pieceColor(Piece p) =>
+      p.polarity == Polarity.plus ? AppColors.haloPlus : AppColors.haloMinus;
+
+  void _spawnExplosion(Cell at, Color color) {
+    final id = ++_explosionIdCounter;
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+    final exp = _Explosion(id: id, cell: at, color: color, controller: controller);
+    setState(() => _explosions[id] = exp);
+    controller.forward().whenComplete(() {
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      setState(() => _explosions.remove(id));
+      controller.dispose();
+    });
   }
 
   @override
@@ -232,6 +259,27 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
                 ),
               ),
             ),
+          // Camada de explosões — uma instância de _ExplosionWidget por destruição
+          ..._explosions.values.map(
+            (exp) => Positioned.fill(
+              key: ValueKey(exp.id),
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: exp.controller,
+                  builder: (_, __) => CustomPaint(
+                    painter: _ExplosionPainter(
+                      cell: exp.cell,
+                      color: exp.color,
+                      progress: exp.controller.value,
+                      cellSize: cellSize,
+                      gap: gap,
+                      padding: padding,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           // Toast de ressonância
           if (_activeResonance != null)
             Positioned(
@@ -388,4 +436,94 @@ class _ForceLinePainter extends CustomPainter {
       old.force.from != force.from ||
       old.force.to != force.to ||
       old.force.kind != force.kind;
+}
+
+class _Explosion {
+  final int id;
+  final Cell cell;
+  final Color color;
+  final AnimationController controller;
+  const _Explosion({
+    required this.id,
+    required this.cell,
+    required this.color,
+    required this.controller,
+  });
+}
+
+/// Renderiza ~10 partículas saindo do centro da peça destruída, com fade out
+/// e leve gravidade (queda). Progress 0→1 ao longo de 650ms.
+class _ExplosionPainter extends CustomPainter {
+  final Cell cell;
+  final Color color;
+  final double progress;
+  final double cellSize;
+  final double gap;
+  final double padding;
+
+  static const int _particleCount = 10;
+
+  const _ExplosionPainter({
+    required this.cell,
+    required this.color,
+    required this.progress,
+    required this.cellSize,
+    required this.gap,
+    required this.padding,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = padding + cell.col * (cellSize + gap) + cellSize / 2;
+    final cy = padding + cell.row * (cellSize + gap) + cellSize / 2;
+    final maxRadius = cellSize * 0.95;
+
+    // Shockwave anel central — expande e some
+    final ringR = maxRadius * progress;
+    final ringAlpha = (1.0 - progress).clamp(0.0, 1.0);
+    canvas.drawCircle(
+      Offset(cx, cy),
+      ringR,
+      Paint()
+        ..color = color.withValues(alpha: 0.55 * ringAlpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0 + 1.5 * (1 - progress)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+    );
+
+    // Flash branco central
+    final flashAlpha = (1.0 - progress * 2.5).clamp(0.0, 1.0);
+    if (flashAlpha > 0) {
+      canvas.drawCircle(
+        Offset(cx, cy),
+        cellSize * 0.32 * (1 + progress * 0.4),
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.7 * flashAlpha)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+    }
+
+    // Partículas
+    for (int i = 0; i < _particleCount; i++) {
+      final angle = (i / _particleCount) * 2 * 3.14159265;
+      final dist = maxRadius * (0.35 + progress * 0.95);
+      final gravity = (cellSize * 0.18) * (progress * progress);
+      final px = cx + dist * math.cos(angle);
+      final py = cy + dist * math.sin(angle) + gravity;
+      final pAlpha = (1.0 - progress * 1.2).clamp(0.0, 1.0);
+      final pSize = (cellSize * 0.08) * (1.0 - progress * 0.6).clamp(0.2, 1.0);
+
+      canvas.drawCircle(
+        Offset(px, py),
+        pSize,
+        Paint()
+          ..color = color.withValues(alpha: pAlpha)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ExplosionPainter old) =>
+      old.progress != progress || old.cell != cell;
 }
