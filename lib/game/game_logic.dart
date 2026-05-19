@@ -3,34 +3,31 @@ import '../models/game_action.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
 
-/// Motor de regras do Polaridade — versão 4 (toroidal, sem cadeia, colisão simétrica).
+/// Motor de regras do Polaridade — versão 5 (passagem orbital + pares).
 ///
-/// Princípio unificador: **peça que se move ativamente contra um obstáculo
-/// passivo morre; passiva sobrevive**. Exceção: atração em par opostos,
-/// onde ambas as peças se movem simultaneamente — ambas morrem.
+/// **Atração agora salta pelo epicentro** (em vez de mover em direção a ele).
+/// A peça oposta vizinha "pula por cima" do epicentro e aterrissa na casa
+/// simétrica do outro lado. Resolve o problema de tabuleiro vazio: peças
+/// agora podem coexistir vizinhas sem se aniquilar a cada ação.
 ///
 /// 1. **Tabuleiro toroidal:** peças nunca caem fora. Movimento que sairia
 ///    pela borda reaparece no lado oposto.
 ///
-/// 2. **Atração:**
-///    - Peça oposta tenta mover 1 casa em direção ao epicentro (+1 charge).
-///    - Se destino é o epicentro (sempre ocupado) → atraída destruída.
-///    - Se destino é outra peça (caso alcance 2) → atraída destruída, peça
-///      de destino sobrevive.
-///    - Se destino é vazio → move normalmente.
-///    - **Pares opostos** (peças opostas em N+S, E+W, NE+SW ou NW+SE) →
-///      ambas se movem em direção ao epicentro → ambas se aniquilam,
-///      epicentro intacto.
+/// 2. **Atração (passagem orbital):**
+///    - Solo: peça oposta a step S do epicentro pula pra step S do LADO
+///      OPOSTO (posição simétrica em relação ao epicentro). Charge +1.
+///    - Pares: peças opostas em ambos os lados (ex: N e S) tentam atravessar
+///      o epicentro simultaneamente; colidem no meio → ambas aniquiladas
+///      (epicentro intacto). Esta é a jogada-chave do jogo.
+///    - Destino ocupado (raro, geralmente via wrap): atraída destruída.
 ///
 /// 3. **Repulsão:**
 ///    - Peça mesma polaridade tenta mover 1 casa para longe do epicentro
 ///      (+1 charge). Vetor: (dr, dc) saindo do epicentro.
-///    - Destino calculado COM wrap toroidal (sai por uma borda, entra pela
-///      outra).
+///    - Destino calculado COM wrap toroidal.
 ///    - Se destino é vazio → move.
-///    - Se destino é ocupado (incluindo wrap-volta pro epicentro ou outra
-///      peça) → repelida destruída, destino sobrevive.
-///    - **Sem cadeia** — single hit. Mais simples e consistente com atração.
+///    - Se destino é ocupado → repelida destruída, destino sobrevive.
+///    - Sem cadeia — single hit.
 ///
 /// 4. **Carga (Pulsar):** peça com 3+ charges, como epicentro, alcance da
 ///    onda dobra para 2 (vaza por casas vazias). Charge zera após disparar.
@@ -38,9 +35,15 @@ import '../models/piece.dart';
 /// 5. **Ressonância:** destruir 2+ peças do oponente em uma onda → +1
 ///    no estoque (3+ → +2), respeitando teto de 10.
 ///
-/// 6. **Fim por stalemate:** ambos estoques zerados E nenhuma peça com
-///    vizinho a ≤ alcance máximo → partida termina, decide por maior
-///    onBoard com desempate por destroyed.
+/// 6. **Fim por stalemate (duas vias):**
+///    - **Geométrico (rápido):** ambos estoques zerados E nenhuma peça com
+///      vizinho a ≤ alcance máximo.
+///    - **Por inércia (robusto):** 4 ações consecutivas sem nenhum evento
+///      de Move ou Destroy (peças isoladas + flips inúteis). Pega o caso
+///      em que ainda há estoque mas ninguém consegue causar reação.
+///    Decide por maior onBoard, desempate por destroyed.
+///
+/// 7. **Primeiro jogador aleatório:** `GameState.newGame()` sorteia 50/50.
 class GameLogic {
   /// 8 direções em ordem fixa: [dRow, dCol]. Índices:
   /// 0=N · 1=NE · 2=E · 3=SE · 4=S · 5=SW · 6=W · 7=NW.
@@ -161,7 +164,7 @@ class GameLogic {
       final isBOpposite = pB != null && pB.polarity != piece.polarity;
 
       if (isAOpposite && isBOpposite) {
-        // Par completo: ambas opostas → colidem e morrem
+        // Par completo: ambas tentam atravessar e colidem → aniquilação mútua
         events.add(ForceEvent(
           from: Cell(er, ec),
           to: Cell(nA!.row, nA.col),
@@ -177,11 +180,14 @@ class GameLogic {
         attractedHandled.add(iA);
         attractedHandled.add(iB);
       } else if (isAOpposite) {
-        destroyedThisWave += _attractSingle(
+        // Solo A → atravessa pelo epicentro pro lado B (posição simétrica)
+        destroyedThisWave += _attractAcross(
           board: board,
-          epi: Cell(er, ec),
+          epicenterR: er,
+          epicenterC: ec,
           neighbor: nA!,
-          dirIndex: iA,
+          fromDirIndex: iA,
+          toDirIndex: iB,
           owner: owner,
           onBoard: onBoard,
           destroyed: destroyed,
@@ -189,11 +195,13 @@ class GameLogic {
         );
         attractedHandled.add(iA);
       } else if (isBOpposite) {
-        destroyedThisWave += _attractSingle(
+        destroyedThisWave += _attractAcross(
           board: board,
-          epi: Cell(er, ec),
+          epicenterR: er,
+          epicenterC: ec,
           neighbor: nB!,
-          dirIndex: iB,
+          fromDirIndex: iB,
+          toDirIndex: iA,
           owner: owner,
           onBoard: onBoard,
           destroyed: destroyed,
@@ -259,6 +267,15 @@ class GameLogic {
     // Fim de partida
     final actionsTaken = state.actionsTaken + 1;
     final other = owner.opponent;
+
+    // Contador de stalemate: flip sem efeito magnético (sem Move ou Destroy)
+    // incrementa; toda placement zera (peça nova é sempre progresso, mesmo
+    // sem reação imediata). Detecta "ficar girando polaridades sem nada
+    // acontecer" — sintoma do final de jogo travado.
+    final hadEffect = events.any((e) => e is MoveEvent || e is DestroyEvent);
+    final isEmptyAction = action is FlipAction && !hadEffect;
+    final newEmptyCount = isEmptyAction ? state.consecutiveEmptyActions + 1 : 0;
+
     PieceOwner? winner;
     bool gameEnded = false;
 
@@ -271,7 +288,12 @@ class GameLogic {
     } else if (actionsTaken >= GameState.maxActions) {
       gameEnded = true;
       winner = _decideTiedWinner(onBoard, destroyed);
+    } else if (newEmptyCount >= GameState.stalemateThreshold) {
+      // Stalemate por inércia: N ações consecutivas sem efeito
+      gameEnded = true;
+      winner = _decideTiedWinner(onBoard, destroyed);
     } else if (_isStalemate(board, stock)) {
+      // Stalemate "geométrico" (versão rápida): ambos estoque 0 e nenhuma peça com vizinho
       gameEnded = true;
       winner = _decideTiedWinner(onBoard, destroyed);
     }
@@ -283,6 +305,7 @@ class GameLogic {
       stock: stock,
       onBoard: onBoard,
       destroyed: destroyed,
+      consecutiveEmptyActions: newEmptyCount,
       actionsTaken: actionsTaken,
       currentPlayer: other,
       winner: winner,
@@ -291,42 +314,38 @@ class GameLogic {
     return ActionResult(newState: newState, events: events);
   }
 
-  /// Atração de uma única peça oposta (sem par contrário). Move 1 casa em
-  /// direção ao epicentro. Se a casa-destino é o epicentro → atraída destruída.
-  /// Se é outra peça (caso alcance 2) → ambas destruídas. Se vazia → move.
-  static int _attractSingle({
+  /// Atração solo (sem par contrário): peça atravessa o epicentro e aterrissa
+  /// na posição simétrica (mesmo step, lado oposto). Destino calculado com
+  /// wrap toroidal. Se destino vazio → move (+1 charge). Se ocupado → atraída
+  /// destruída (consistente com regra ativa/passiva).
+  static int _attractAcross({
     required List<List<Piece?>> board,
-    required Cell epi,
+    required int epicenterR,
+    required int epicenterC,
     required _Neighbor neighbor,
-    required int dirIndex,
+    required int fromDirIndex,
+    required int toDirIndex,
     required PieceOwner owner,
     required Map<PieceOwner, int> onBoard,
     required Map<PieceOwner, int> destroyed,
     required List<AnimationEvent> events,
   }) {
     events.add(ForceEvent(
-      from: epi,
+      from: Cell(epicenterR, epicenterC),
       to: Cell(neighbor.row, neighbor.col),
       kind: ForceKind.attract,
     ));
 
-    final dr = dirs[dirIndex][0];
-    final dc = dirs[dirIndex][1];
-    // Destino: 1 casa em direção contrária a (dr,dc), ou seja, mais perto do epicentro
-    final tr = neighbor.row - dr;
-    final tc = neighbor.col - dc;
-    final n = GameState.boardSize;
-    if (tr < 0 || tr >= n || tc < 0 || tc >= n) {
-      // Destino fora — fica parada (não destrói, não move)
-      events.add(ShakeEvent(Cell(neighbor.row, neighbor.col)));
-      return 0;
-    }
+    final toDir = dirs[toDirIndex];
+    // Posição simétrica: epicentro + dirOposto × step (com wrap)
+    final tr = _wrapAxis(epicenterR + toDir[0] * neighbor.step);
+    final tc = _wrapAxis(epicenterC + toDir[1] * neighbor.step);
 
     final attracted = board[neighbor.row][neighbor.col]!;
-
     final destPiece = board[tr][tc];
+
     if (destPiece == null) {
-      // Move pra casa vazia (com +1 charge)
+      // Casa simétrica vazia → atravessa
       board[neighbor.row][neighbor.col] = null;
       final landed = attracted.bumpCharge();
       board[tr][tc] = landed;
@@ -345,23 +364,7 @@ class GameLogic {
       return 0;
     }
 
-    // Casa-destino ocupada. Se é o epicentro: só a atraída destruída (epicentro é indestrutível na sua onda).
-    final isEpicenter = tr == epi.row && tc == epi.col;
-    if (isEpicenter) {
-      board[neighbor.row][neighbor.col] = null;
-      onBoard[attracted.owner] = (onBoard[attracted.owner] ?? 0) - 1;
-      final killed = attracted.owner != owner ? 1 : 0;
-      if (killed > 0) destroyed[owner] = (destroyed[owner] ?? 0) + 1;
-      events.add(DestroyEvent(
-        from: Cell(neighbor.row, neighbor.col),
-        direction: [-dr, -dc],
-        piece: attracted,
-      ));
-      return killed;
-    }
-
-    // Outra peça (não-epicentro): destino sobrevive, atraída morre.
-    // Consistente com repulsão e com a regra geral "ativo bate em passivo → ativo morre".
+    // Destino ocupado (caso raro, via wrap em board cheio) → atraída morre
     board[neighbor.row][neighbor.col] = null;
     onBoard[attracted.owner] = (onBoard[attracted.owner] ?? 0) - 1;
     int killed = 0;
@@ -371,7 +374,7 @@ class GameLogic {
     }
     events.add(DestroyEvent(
       from: Cell(neighbor.row, neighbor.col),
-      direction: [-dr, -dc],
+      direction: toDir,
       piece: attracted,
     ));
     return killed;

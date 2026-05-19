@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'piece.dart';
 
 /// Estado imutável do jogo. `copyWith` para evoluir; nunca mutar in-place.
@@ -15,6 +17,12 @@ class GameState {
   /// Critério de desempate justo: quem destruiu mais peças do outro vence.
   final Map<PieceOwner, int> destroyed;
 
+  /// Contador de ações consecutivas que não produziram movimento ou destruição
+  /// (i.e. peça colocada longe sem reação, ou flip de peça isolada). Quando
+  /// atinge [stalemateThreshold], partida termina por stalemate.
+  final int consecutiveEmptyActions;
+  static const int stalemateThreshold = 4;
+
   final int actionsTaken;
   final PieceOwner currentPlayer;
   final PieceOwner? winner;
@@ -24,26 +32,35 @@ class GameState {
     required this.stock,
     required this.onBoard,
     required this.destroyed,
+    required this.consecutiveEmptyActions,
     required this.actionsTaken,
     required this.currentPlayer,
     required this.winner,
   });
 
-  factory GameState.newGame() => GameState._(
-    board: List.generate(boardSize, (_) => List<Piece?>.filled(boardSize, null, growable: false)),
-    stock: {PieceOwner.player: stockSize, PieceOwner.ai: stockSize},
-    onBoard: {PieceOwner.player: 0, PieceOwner.ai: 0},
-    destroyed: {PieceOwner.player: 0, PieceOwner.ai: 0},
-    actionsTaken: 0,
-    currentPlayer: PieceOwner.player,
-    winner: null,
-  );
+  /// Cria nova partida. Primeiro jogador é aleatório (50/50) — "a gravidade
+  /// decide". Pra testes determinísticos, passar [startingPlayer] explícito.
+  factory GameState.newGame({PieceOwner? startingPlayer, Random? rng}) {
+    final firstPlayer = startingPlayer ??
+        ((rng ?? Random()).nextBool() ? PieceOwner.player : PieceOwner.ai);
+    return GameState._(
+      board: List.generate(boardSize, (_) => List<Piece?>.filled(boardSize, null, growable: false)),
+      stock: {PieceOwner.player: stockSize, PieceOwner.ai: stockSize},
+      onBoard: {PieceOwner.player: 0, PieceOwner.ai: 0},
+      destroyed: {PieceOwner.player: 0, PieceOwner.ai: 0},
+      consecutiveEmptyActions: 0,
+      actionsTaken: 0,
+      currentPlayer: firstPlayer,
+      winner: null,
+    );
+  }
 
   GameState copyWith({
     List<List<Piece?>>? board,
     Map<PieceOwner, int>? stock,
     Map<PieceOwner, int>? onBoard,
     Map<PieceOwner, int>? destroyed,
+    int? consecutiveEmptyActions,
     int? actionsTaken,
     PieceOwner? currentPlayer,
     PieceOwner? winner,
@@ -53,6 +70,7 @@ class GameState {
       stock: stock ?? this.stock,
       onBoard: onBoard ?? this.onBoard,
       destroyed: destroyed ?? this.destroyed,
+      consecutiveEmptyActions: consecutiveEmptyActions ?? this.consecutiveEmptyActions,
       actionsTaken: actionsTaken ?? this.actionsTaken,
       currentPlayer: currentPlayer ?? this.currentPlayer,
       winner: winner ?? this.winner,

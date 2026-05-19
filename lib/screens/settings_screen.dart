@@ -93,7 +93,7 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     _Section(
                       title: l10n.settingsSectionAbout,
-                      children: const [_AboutTile(version: '0.2.0')],
+                      children: const [_AboutTile(version: '0.3.0')],
                     ),
                     const SizedBox(height: 32),
                   ],

@@ -4,11 +4,15 @@
 
 5×5, single-player vs IA (3 níveis), 1–3 min por partida. Flutter / Dart, com i18n PT/EN/ES.
 
-## v0.2.0 — diferenças em relação ao briefing original
+## v0.3.0 — diferenças em relação ao briefing original
 
 - **`pubspec.yaml` já está versionado** com todas as deps (provider, hive, google_fonts, google_mobile_ads, in_app_purchase).
 - **Localizações são hand-rolled** em `lib/l10n/strings_*.dart`. Não precisa rodar `flutter gen-l10n` — os `.arb` em `l10n/` ficam como documentação. Para adicionar string nova: edite os 3 arquivos `strings_*.dart` e acrescente o getter em `app_localizations.dart`.
-- **Física revisada**: atração agora produz movimento (passagem orbital). Adicionados sistema de carga e ressonância. Desempate por destruições.
+- **Física reformulada (v5)**: tabuleiro toroidal (wrap nas bordas). Atração é **passagem orbital** — peça oposta pula pelo epicentro e cai na casa simétrica do outro lado; se há opostos nos dois lados, ambas colidem e morrem. Repulsão single-hit: empurra 1 casa; se destino ocupado, repelida morre. Carga (peças sobreviventes viram pulsar com alcance 2). Ressonância (+1 estoque ao destruir 2+ peças). Empate por destruições totais.
+- **20 turnos × 10 peças** (em vez de 10 × 6 do briefing) — partidas mais longas, tabuleiro mais cheio.
+- **Início aleatório 50/50** — sorteado por `GameState.newGame()` ("a gravidade decide").
+- **Fim antecipado por stalemate**: detecção dupla — geométrica (ambos estoques 0 + peças isoladas) E por inércia (4 flips consecutivos sem efeito).
+- **Animação de explosão** em cada destruição (shockwave + flash + partículas radiais com gravidade).
 - **Monetização cabeada**: `lib/services/ads_service.dart` (intersticial + rewarded) e `lib/services/purchases_service.dart` (IAP remove_ads). Antes do release, trocar os IDs de teste no `ads_service.dart` pelos IDs reais de produção e configurar produto `remove_ads` na Play Console / App Store Connect (preços sugeridos: R$ 9,90 / US$ 1.99 / €1.99).
 - **Design study preservado** em `design_study/` (HTML/JSX/CSS do designer + spec canônica).
 
