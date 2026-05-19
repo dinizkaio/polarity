@@ -3,58 +3,80 @@ import '../models/game_action.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
 
-/// Motor de regras do Polaridade — versão 2 (física revista).
+/// Motor de regras do Polaridade — versão 3 (física toroidal com pares).
 ///
-/// Mudanças em relação à v1:
+/// Diferenças em relação à v2:
 ///
-/// 1. **Atração agora produz movimento real ("passagem orbital"):**
-///    Vizinho de polaridade oposta é atraído com força tal que passa pelo
-///    epicentro e cai do outro lado, na casa simétrica (er - dr, ec - dc).
-///    Se essa casa estiver ocupada, a cadeia continua na mesma direção.
-///    Se sair do tabuleiro → peça destruída. Isso resolve a falha da v1
-///    onde a atração nunca produzia movimento (sempre bloqueada pelo
-///    próprio epicentro).
+/// 1. **Tabuleiro toroidal (wrap-around):** peças nunca caem fora. Empurrão
+///    além da borda → reaparece pelo lado oposto (Pac-Man / toro).
 ///
-/// 2. **Carga (Charge):** peças acumulam +1 charge cada vez que sobrevivem
-///    a uma força. Quando charge atinge 3 (`Piece.maxCharge`), a peça
-///    fica **carregada**. Carregadas como EPICENTRO têm alcance 2 — a onda
-///    alcança peças a 1 e 2 casas. Após disparar como epicentro, charge zera.
+/// 2. **Atração clássica + colisão destrutiva:** peça oposta tenta mover 1
+///    casa em direção ao epicentro. Se a casa-destino estiver ocupada (pelo
+///    epicentro ou por outra peça), a peça atraída é DESTRUÍDA. A peça onde
+///    ela "cairia" também é destruída — EXCETO se for o epicentro (que é
+///    indestrutível na sua própria onda).
 ///
-/// 3. **Ressonância:** se uma única onda destrói 2+ peças do oponente, o
-///    dono do epicentro ganha +1 peça no estoque (até o limite). 3+ → +2.
+/// 3. **Atração em pares opostos:** as 4 duplas de direções contrárias
+///    (N+S, E+W, NE+SW, NW+SE) são processadas como unidade. Se há peças
+///    opostas dos DOIS lados, ambas convergem e se aniquilam (epicentro fica).
+///    Estratégia central: posicionar epicentro entre dois inimigos opostos.
 ///
-/// 4. **Desempate justo:** empate em ações máximas é resolvido pelas
-///    destruições totais (`state.destroyed`). Empate persistente → empate
-///    técnico (sem mais regra do pie arbitrária).
+/// 4. **Repulsão sem destruição:** peça empurrada que sairia do tabuleiro
+///    faz wrap pro lado oposto. Continua a cadeia até achar casa vazia.
+///    Em tabuleiro cheio, o motor limita a [boardSize] iterações por
+///    segurança e descarta o movimento (estado inválido — não acontece na
+///    prática porque o jogo termina antes).
 ///
-/// 5. **Vizinhos reagem em ordem fixa N→NE→E→SE→S→SW→W→NW.** Onda única —
-///    peças que se movem por reação NÃO geram nova onda.
+/// 5. **Carga (Pulsar):** peça com 3+ charges vira pulsar. Como epicentro,
+///    a onda tem alcance 2 — a peça oposta/igual pode estar a 1 OU 2 casas
+///    (a onda "vaza" por uma casa vazia). Charge zera após disparar.
+///
+/// 6. **Ressonância:** destruir 2+ peças do oponente na mesma onda dá +1
+///    no estoque (3+ → +2), respeitando o teto.
+///
+/// 7. **Fim por stalemate:** se ambos estoques = 0 E nenhuma peça tem
+///    vizinho a 1 ou 2 casas (alcance máximo), a partida termina mesmo
+///    com turnos restantes. Decide pelo maior `onBoard`, desempate por
+///    `destroyed`.
 class GameLogic {
-  /// 8 direções em ordem fixa: [dRow, dCol]
+  /// 8 direções em ordem fixa: [dRow, dCol]. Índices:
+  /// 0=N · 1=NE · 2=E · 3=SE · 4=S · 5=SW · 6=W · 7=NW.
+  /// Pares opostos: (0,4) (1,5) (2,6) (3,7).
   static const List<List<int>> dirs = [
-    [-1, 0],  // N
-    [-1, 1],  // NE
-    [0, 1],   // E
-    [1, 1],   // SE
-    [1, 0],   // S
-    [1, -1],  // SW
-    [0, -1],  // W
-    [-1, -1], // NW
+    [-1, 0],  // 0 N
+    [-1, 1],  // 1 NE
+    [0, 1],   // 2 E
+    [1, 1],   // 3 SE
+    [1, 0],   // 4 S
+    [1, -1],  // 5 SW
+    [0, -1],  // 6 W
+    [-1, -1], // 7 NW
   ];
 
-  /// Distância de alcance da onda. Peça carregada como epicentro estende
-  /// para 2 casas.
+  /// Pares de direções opostas. Cada elemento é [indexA, indexB].
+  static const List<List<int>> oppositePairs = [
+    [0, 4],  // N + S
+    [1, 5],  // NE + SW
+    [2, 6],  // E + W
+    [3, 7],  // SE + NW
+  ];
+
+  /// Alcance da onda. Pulsar dobra.
   static const int normalRange = 1;
   static const int chargedRange = 2;
 
   static int _idCounter = 0;
   static int _nextId() => ++_idCounter;
 
-  static bool _inBounds(int r, int c) =>
-      r >= 0 && r < GameState.boardSize && c >= 0 && c < GameState.boardSize;
+  /// Wrap toroidal: traz coordenadas pra dentro do tabuleiro.
+  static int _wrapAxis(int v) {
+    final n = GameState.boardSize;
+    return ((v % n) + n) % n;
+  }
 
-  /// Resultado da aplicação de uma ação: novo estado + lista ordenada de eventos pra animar.
-  /// Retorna null se a ação for inválida.
+  static Cell _wrap(int r, int c) => Cell(_wrapAxis(r), _wrapAxis(c));
+
+  /// Aplica a ação. Retorna `null` se inválida.
   static ActionResult? applyAction(GameState state, GameAction action) {
     if (state.isGameOver) return null;
     final owner = state.currentPlayer;
@@ -96,130 +118,118 @@ class GameLogic {
     final range = epicenterWasCharged ? chargedRange : normalRange;
     int destroyedThisWave = 0;
 
-    // Resolve onda. Para cada direção, procura a PRIMEIRA peça dentro do
-    // alcance. Se range = 2, a peça a 1 casa reage normalmente; se 1 casa
-    // está vazia, olha a 2 casas (a onda "vaza" através do vazio).
-    for (final dir in dirs) {
-      final dr = dir[0];
-      final dc = dir[1];
-
-      int? nr;
-      int? nc;
+    // ─── 1) Detecção: qual vizinho está em cada direção (1ª peça encontrada) ───
+    // Para alcance 2, a onda "vaza" por uma casa vazia adjacente ao epicentro
+    // e pega a peça a 2 casas. Sem wrap aqui — vizinhança magnética é local.
+    final neighborByDir = <int, _Neighbor>{};
+    for (int i = 0; i < dirs.length; i++) {
+      final dr = dirs[i][0];
+      final dc = dirs[i][1];
       for (int step = 1; step <= range; step++) {
-        final cr = er + dr * step;
-        final cc = ec + dc * step;
-        if (!_inBounds(cr, cc)) break;
-        if (board[cr][cc] != null) {
-          nr = cr;
-          nc = cc;
+        final nr = er + dr * step;
+        final nc = ec + dc * step;
+        // Detecção de vizinho NÃO usa wrap — só vê peças "em linha de visão"
+        // dentro do tabuleiro real.
+        if (nr < 0 || nr >= GameState.boardSize || nc < 0 || nc >= GameState.boardSize) {
+          break;
+        }
+        if (board[nr][nc] != null) {
+          neighborByDir[i] = _Neighbor(row: nr, col: nc, step: step);
           break;
         }
       }
-      if (nr == null || nc == null) continue;
+    }
 
-      final neighbor = board[nr][nc]!;
-      final same = neighbor.polarity == piece.polarity;
+    // ─── 2) Atração: processa pares opostos ───
+    // Para cada par (N+S, E+W, NE+SW, NW+SE):
+    //   - se há peça oposta nos dois lados: ambas destruídas
+    //   - se há em um só: tenta mover em direção ao epicentro
+    final attractedHandled = <int>{}; // direções já processadas via atração
+    for (final pair in oppositePairs) {
+      final iA = pair[0];
+      final iB = pair[1];
+      final nA = neighborByDir[iA];
+      final nB = neighborByDir[iB];
 
-      if (!same) {
-        // ─── ATRAÇÃO (passagem orbital) ───
-        // Peça oposta passa pelo epicentro e cai na casa simétrica.
+      final pA = nA != null ? board[nA.row][nA.col] : null;
+      final pB = nB != null ? board[nB.row][nB.col] : null;
+
+      final isAOpposite = pA != null && pA.polarity != piece.polarity;
+      final isBOpposite = pB != null && pB.polarity != piece.polarity;
+
+      if (isAOpposite && isBOpposite) {
+        // Par completo: ambas opostas → colidem e morrem
         events.add(ForceEvent(
           from: Cell(er, ec),
-          to: Cell(nr, nc),
+          to: Cell(nA!.row, nA.col),
           kind: ForceKind.attract,
         ));
-
-        final moveDr = -dr;
-        final moveDc = -dc;
-        final landingR = er + moveDr; // casa simétrica do outro lado do epicentro
-        final landingC = ec + moveDc;
-
-        if (!_inBounds(landingR, landingC)) {
-          // Sai do tabuleiro → destruída
-          board[nr][nc] = null;
-          onBoard[neighbor.owner] = (onBoard[neighbor.owner] ?? 0) - 1;
-          if (neighbor.owner != owner) {
-            destroyed[owner] = (destroyed[owner] ?? 0) + 1;
-            destroyedThisWave++;
-          }
-          events.add(DestroyEvent(
-            from: Cell(nr, nc),
-            direction: [moveDr, moveDc],
-            piece: neighbor,
-          ));
-        } else if (board[landingR][landingC] == null) {
-          // Casa simétrica vazia → aterrissa com +1 charge
-          board[nr][nc] = null;
-          final landed = neighbor.bumpCharge();
-          board[landingR][landingC] = landed;
-          events.add(MoveEvent(
-            from: Cell(nr, nc),
-            to: Cell(landingR, landingC),
-            piece: landed,
-          ));
-          if (landed.charge > neighbor.charge) {
-            events.add(ChargeEvent(
-              at: Cell(landingR, landingC),
-              newCharge: landed.charge,
-              becameCharged: landed.isCharged && !neighbor.isCharged,
-            ));
-          }
-        } else {
-          // Cadeia: empurra o que estiver depois da casa simétrica
-          final chainOut = _resolveChainPush(
-            board: board,
-            startR: landingR,
-            startC: landingC,
-            dr: moveDr,
-            dc: moveDc,
-            ownerOfEpicenter: owner,
-            onBoard: onBoard,
-            destroyed: destroyed,
-            events: events,
-            firstChainIndex: 1,
-          );
-          destroyedThisWave += chainOut.destroyed;
-          // Casa simétrica agora vazia → peça atraída ocupa
-          board[nr][nc] = null;
-          final landed = neighbor.bumpCharge();
-          board[landingR][landingC] = landed;
-          events.add(MoveEvent(
-            from: Cell(nr, nc),
-            to: Cell(landingR, landingC),
-            piece: landed,
-            chainIndex: 0,
-          ));
-          if (landed.charge > neighbor.charge) {
-            events.add(ChargeEvent(
-              at: Cell(landingR, landingC),
-              newCharge: landed.charge,
-              becameCharged: landed.isCharged && !neighbor.isCharged,
-            ));
-          }
-        }
-      } else {
-        // ─── REPULSÃO ───
         events.add(ForceEvent(
           from: Cell(er, ec),
-          to: Cell(nr, nc),
-          kind: ForceKind.repel,
+          to: Cell(nB!.row, nB.col),
+          kind: ForceKind.attract,
         ));
-        final chainOut = _resolveChainPush(
+        destroyedThisWave += _annihilate(board, pA!, nA, owner, onBoard, destroyed, events);
+        destroyedThisWave += _annihilate(board, pB!, nB, owner, onBoard, destroyed, events);
+        attractedHandled.add(iA);
+        attractedHandled.add(iB);
+      } else if (isAOpposite) {
+        destroyedThisWave += _attractSingle(
           board: board,
-          startR: nr,
-          startC: nc,
-          dr: dr,
-          dc: dc,
-          ownerOfEpicenter: owner,
+          epi: Cell(er, ec),
+          neighbor: nA!,
+          dirIndex: iA,
+          owner: owner,
           onBoard: onBoard,
           destroyed: destroyed,
           events: events,
-          firstChainIndex: 0,
         );
-        destroyedThisWave += chainOut.destroyed;
+        attractedHandled.add(iA);
+      } else if (isBOpposite) {
+        destroyedThisWave += _attractSingle(
+          board: board,
+          epi: Cell(er, ec),
+          neighbor: nB!,
+          dirIndex: iB,
+          owner: owner,
+          onBoard: onBoard,
+          destroyed: destroyed,
+          events: events,
+        );
+        attractedHandled.add(iB);
       }
     }
 
+    // ─── 3) Repulsão: direção a direção, com wrap, sem destruição ───
+    for (int i = 0; i < dirs.length; i++) {
+      if (attractedHandled.contains(i)) continue;
+      final n = neighborByDir[i];
+      if (n == null) continue;
+      final neighborPiece = board[n.row][n.col];
+      if (neighborPiece == null) continue;
+      // Mesma polaridade ou já foi tratada como atração? Repulsão só se igual.
+      if (neighborPiece.polarity != piece.polarity) continue;
+
+      events.add(ForceEvent(
+        from: Cell(er, ec),
+        to: Cell(n.row, n.col),
+        kind: ForceKind.repel,
+      ));
+      _chainPushToroidal(
+        board: board,
+        startR: n.row,
+        startC: n.col,
+        dr: dirs[i][0],
+        dc: dirs[i][1],
+        epicenterR: er,
+        epicenterC: ec,
+        events: events,
+        ownerOfEpicenter: owner,
+        onBoard: onBoard,
+      );
+    }
+
+    // Charge do epicentro: se era carregado, zera
     if (epicenterWasCharged) {
       final reset = piece.resetCharge();
       board[er][ec] = reset;
@@ -227,12 +237,12 @@ class GameLogic {
       events.add(ChargeEvent(at: Cell(er, ec), newCharge: 0));
     }
 
+    // Ressonância
     int bonus = 0;
     if (destroyedThisWave >= 2) {
       bonus = destroyedThisWave >= 3 ? 2 : 1;
       final current = stock[owner] ?? 0;
-      final maxStock = GameState.stockSize;
-      final effective = (current + bonus).clamp(0, maxStock) - current;
+      final effective = (current + bonus).clamp(0, GameState.stockSize) - current;
       if (effective > 0) {
         stock[owner] = current + effective;
       }
@@ -243,39 +253,27 @@ class GameLogic {
       ));
     }
 
+    // Fim de partida
     final actionsTaken = state.actionsTaken + 1;
     final other = owner.opponent;
     PieceOwner? winner;
-    bool reachedMax = false;
+    bool gameEnded = false;
 
     if ((onBoard[other] ?? 0) == 0 && (stock[other] ?? 0) == 0) {
       winner = owner;
+      gameEnded = true;
     } else if ((onBoard[owner] ?? 0) == 0 && (stock[owner] ?? 0) == 0) {
       winner = other;
+      gameEnded = true;
     } else if (actionsTaken >= GameState.maxActions) {
-      reachedMax = true;
-      final p = onBoard[PieceOwner.player] ?? 0;
-      final a = onBoard[PieceOwner.ai] ?? 0;
-      if (p > a) {
-        winner = PieceOwner.player;
-      } else if (a > p) {
-        winner = PieceOwner.ai;
-      } else {
-        final dp = destroyed[PieceOwner.player] ?? 0;
-        final da = destroyed[PieceOwner.ai] ?? 0;
-        if (dp > da) {
-          winner = PieceOwner.player;
-        } else if (da > dp) {
-          winner = PieceOwner.ai;
-        } else {
-          winner = null; // empate técnico
-        }
-      }
+      gameEnded = true;
+      winner = _decideTiedWinner(onBoard, destroyed);
+    } else if (_isStalemate(board, stock)) {
+      gameEnded = true;
+      winner = _decideTiedWinner(onBoard, destroyed);
     }
 
-    if (winner != null || reachedMax) {
-      events.add(EndEvent(winner));
-    }
+    if (gameEnded) events.add(EndEvent(winner));
 
     final newState = state.copyWith(
       board: board,
@@ -290,73 +288,233 @@ class GameLogic {
     return ActionResult(newState: newState, events: events);
   }
 
-  /// Resolve cadeia de empurrão a partir de uma posição inicial na direção (dr,dc).
-  /// Peças consecutivas são deslocadas; última pode ser destruída se sair do tabuleiro.
-  /// Modifica `board`, `onBoard`, `destroyed` e empilha eventos.
-  /// Retorna quantas peças DO OPONENTE foram destruídas.
-  static _ChainOut _resolveChainPush({
+  /// Atração de uma única peça oposta (sem par contrário). Move 1 casa em
+  /// direção ao epicentro. Se a casa-destino é o epicentro → atraída destruída.
+  /// Se é outra peça (caso alcance 2) → ambas destruídas. Se vazia → move.
+  static int _attractSingle({
+    required List<List<Piece?>> board,
+    required Cell epi,
+    required _Neighbor neighbor,
+    required int dirIndex,
+    required PieceOwner owner,
+    required Map<PieceOwner, int> onBoard,
+    required Map<PieceOwner, int> destroyed,
+    required List<AnimationEvent> events,
+  }) {
+    events.add(ForceEvent(
+      from: epi,
+      to: Cell(neighbor.row, neighbor.col),
+      kind: ForceKind.attract,
+    ));
+
+    final dr = dirs[dirIndex][0];
+    final dc = dirs[dirIndex][1];
+    // Destino: 1 casa em direção contrária a (dr,dc), ou seja, mais perto do epicentro
+    final tr = neighbor.row - dr;
+    final tc = neighbor.col - dc;
+    final n = GameState.boardSize;
+    if (tr < 0 || tr >= n || tc < 0 || tc >= n) {
+      // Destino fora — fica parada (não destrói, não move)
+      events.add(ShakeEvent(Cell(neighbor.row, neighbor.col)));
+      return 0;
+    }
+
+    final attracted = board[neighbor.row][neighbor.col]!;
+
+    final destPiece = board[tr][tc];
+    if (destPiece == null) {
+      // Move pra casa vazia (com +1 charge)
+      board[neighbor.row][neighbor.col] = null;
+      final landed = attracted.bumpCharge();
+      board[tr][tc] = landed;
+      events.add(MoveEvent(
+        from: Cell(neighbor.row, neighbor.col),
+        to: Cell(tr, tc),
+        piece: landed,
+      ));
+      if (landed.charge > attracted.charge) {
+        events.add(ChargeEvent(
+          at: Cell(tr, tc),
+          newCharge: landed.charge,
+          becameCharged: landed.isCharged && !attracted.isCharged,
+        ));
+      }
+      return 0;
+    }
+
+    // Casa-destino ocupada. Se é o epicentro: só a atraída destruída (epicentro é indestrutível na sua onda).
+    final isEpicenter = tr == epi.row && tc == epi.col;
+    if (isEpicenter) {
+      board[neighbor.row][neighbor.col] = null;
+      onBoard[attracted.owner] = (onBoard[attracted.owner] ?? 0) - 1;
+      final killed = attracted.owner != owner ? 1 : 0;
+      if (killed > 0) destroyed[owner] = (destroyed[owner] ?? 0) + 1;
+      events.add(DestroyEvent(
+        from: Cell(neighbor.row, neighbor.col),
+        direction: [-dr, -dc],
+        piece: attracted,
+      ));
+      return killed;
+    }
+
+    // Outra peça (não-epicentro): ambas destruídas
+    board[neighbor.row][neighbor.col] = null;
+    onBoard[attracted.owner] = (onBoard[attracted.owner] ?? 0) - 1;
+    int killed = 0;
+    if (attracted.owner != owner) {
+      destroyed[owner] = (destroyed[owner] ?? 0) + 1;
+      killed++;
+    }
+    events.add(DestroyEvent(
+      from: Cell(neighbor.row, neighbor.col),
+      direction: [-dr, -dc],
+      piece: attracted,
+    ));
+
+    board[tr][tc] = null;
+    onBoard[destPiece.owner] = (onBoard[destPiece.owner] ?? 0) - 1;
+    if (destPiece.owner != owner) {
+      destroyed[owner] = (destroyed[owner] ?? 0) + 1;
+      killed++;
+    }
+    events.add(DestroyEvent(
+      from: Cell(tr, tc),
+      direction: [-dr, -dc],
+      piece: destPiece,
+    ));
+    return killed;
+  }
+
+  /// Aniquilação direta (par de opostos colide). Destrói a peça na posição
+  /// do vizinho. Conta destruição se o dono for diferente do epicentro.
+  static int _annihilate(
+    List<List<Piece?>> board,
+    Piece piece,
+    _Neighbor at,
+    PieceOwner ownerOfEpicenter,
+    Map<PieceOwner, int> onBoard,
+    Map<PieceOwner, int> destroyed,
+    List<AnimationEvent> events,
+  ) {
+    board[at.row][at.col] = null;
+    onBoard[piece.owner] = (onBoard[piece.owner] ?? 0) - 1;
+    int killed = 0;
+    if (piece.owner != ownerOfEpicenter) {
+      destroyed[ownerOfEpicenter] = (destroyed[ownerOfEpicenter] ?? 0) + 1;
+      killed = 1;
+    }
+    events.add(DestroyEvent(
+      from: Cell(at.row, at.col),
+      direction: const [0, 0],
+      piece: piece,
+    ));
+    return killed;
+  }
+
+  /// Cadeia de empurrão com wrap toroidal. Empurra peças sucessivas até achar
+  /// casa vazia OU até bater no epicentro (cuja casa nunca é empurrada).
+  /// Sem destruição — repulsão nunca mata.
+  static void _chainPushToroidal({
     required List<List<Piece?>> board,
     required int startR,
     required int startC,
     required int dr,
     required int dc,
+    required int epicenterR,
+    required int epicenterC,
+    required List<AnimationEvent> events,
     required PieceOwner ownerOfEpicenter,
     required Map<PieceOwner, int> onBoard,
-    required Map<PieceOwner, int> destroyed,
-    required List<AnimationEvent> events,
-    required int firstChainIndex,
   }) {
+    final maxSteps = GameState.boardSize;
     final chain = <List<int>>[];
     int cr = startR;
     int cc = startC;
-    while (_inBounds(cr, cc) && board[cr][cc] != null) {
+    int? destR;
+    int? destC;
+    for (int step = 0; step <= maxSteps; step++) {
+      // O epicentro nunca é deslocado — para a cadeia antes de chegar nele
+      if (cr == epicenterR && cc == epicenterC) break;
+      if (board[cr][cc] == null) {
+        destR = cr;
+        destC = cc;
+        break;
+      }
       chain.add([cr, cc]);
-      cr += dr;
-      cc += dc;
+      cr = _wrapAxis(cr + dr);
+      cc = _wrapAxis(cc + dc);
     }
-    if (chain.isEmpty) return const _ChainOut(0);
+    if (destR == null || chain.isEmpty) return; // sem casa livre, ninguém se move
 
-    int dest = 0;
+    int firstFreeR = destR;
+    int firstFreeC = destC!;
     for (int k = chain.length - 1; k >= 0; k--) {
       final pr = chain[k][0];
       final pc = chain[k][1];
-      final tr = pr + dr;
-      final tc = pc + dc;
+      final tr = firstFreeR;
+      final tc = firstFreeC;
       final moving = board[pr][pc]!;
       board[pr][pc] = null;
-      if (!_inBounds(tr, tc)) {
-        onBoard[moving.owner] = (onBoard[moving.owner] ?? 0) - 1;
-        if (moving.owner != ownerOfEpicenter) {
-          destroyed[ownerOfEpicenter] = (destroyed[ownerOfEpicenter] ?? 0) + 1;
-          dest++;
-        }
-        events.add(DestroyEvent(
-          from: Cell(pr, pc),
-          direction: [dr, dc],
-          piece: moving,
+      final landed = moving.bumpCharge();
+      board[tr][tc] = landed;
+      events.add(MoveEvent(
+        from: Cell(pr, pc),
+        to: Cell(tr, tc),
+        piece: landed,
+        chainIndex: chain.length - 1 - k,
+      ));
+      if (landed.charge > moving.charge) {
+        events.add(ChargeEvent(
+          at: Cell(tr, tc),
+          newCharge: landed.charge,
+          becameCharged: landed.isCharged && !moving.isCharged,
         ));
-      } else {
-        final landed = moving.bumpCharge();
-        board[tr][tc] = landed;
-        events.add(MoveEvent(
-          from: Cell(pr, pc),
-          to: Cell(tr, tc),
-          piece: landed,
-          chainIndex: firstChainIndex + (chain.length - 1 - k),
-        ));
-        if (landed.charge > moving.charge) {
-          events.add(ChargeEvent(
-            at: Cell(tr, tc),
-            newCharge: landed.charge,
-            becameCharged: landed.isCharged && !moving.isCharged,
-          ));
+      }
+      firstFreeR = pr;
+      firstFreeC = pc;
+    }
+  }
+
+  /// Stalemate: nenhuma peça tem vizinho a até chargedRange casas.
+  /// Pré-condição já checada pelo caller: ambos estoques = 0.
+  static bool _isStalemate(List<List<Piece?>> board, Map<PieceOwner, int> stock) {
+    if ((stock[PieceOwner.player] ?? 0) > 0) return false;
+    if ((stock[PieceOwner.ai] ?? 0) > 0) return false;
+
+    final n = GameState.boardSize;
+    for (int r = 0; r < n; r++) {
+      for (int c = 0; c < n; c++) {
+        if (board[r][c] == null) continue;
+        for (final dir in dirs) {
+          for (int step = 1; step <= chargedRange; step++) {
+            final nr = r + dir[0] * step;
+            final nc = c + dir[1] * step;
+            if (nr < 0 || nr >= n || nc < 0 || nc >= n) break;
+            if (board[nr][nc] != null) return false; // tem vizinho
+          }
         }
       }
     }
-    return _ChainOut(dest);
+    return true;
   }
 
-  /// Lista todas as ações legais para o jogador da vez.
+  /// Decide vencedor numa situação de fim por contagem (max ações ou stalemate).
+  static PieceOwner? _decideTiedWinner(
+    Map<PieceOwner, int> onBoard,
+    Map<PieceOwner, int> destroyed,
+  ) {
+    final p = onBoard[PieceOwner.player] ?? 0;
+    final a = onBoard[PieceOwner.ai] ?? 0;
+    if (p > a) return PieceOwner.player;
+    if (a > p) return PieceOwner.ai;
+    final dp = destroyed[PieceOwner.player] ?? 0;
+    final da = destroyed[PieceOwner.ai] ?? 0;
+    if (dp > da) return PieceOwner.player;
+    if (da > dp) return PieceOwner.ai;
+    return null; // empate técnico
+  }
+
+  /// Ações legais para o jogador da vez.
   static List<GameAction> legalActions(GameState state) {
     final actions = <GameAction>[];
     final owner = state.currentPlayer;
@@ -391,7 +549,9 @@ class ActionResult {
   const ActionResult({required this.newState, required this.events});
 }
 
-class _ChainOut {
-  final int destroyed;
-  const _ChainOut(this.destroyed);
+class _Neighbor {
+  final int row;
+  final int col;
+  final int step;
+  const _Neighbor({required this.row, required this.col, required this.step});
 }

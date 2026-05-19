@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/game_state.dart';
 import '../models/piece.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -70,13 +71,13 @@ class PlayerTray extends StatelessWidget {
                 Text(name, style: AppTypography.uiLabel(size: 13)),
                 const SizedBox(height: 6),
                 Row(
-                  children: List.generate(6, (i) {
+                  children: List.generate(GameState.stockSize, (i) {
                     final used = i >= stockCount;
                     return Padding(
-                      padding: const EdgeInsets.only(right: 4),
+                      padding: const EdgeInsets.only(right: 3),
                       child: Container(
-                        width: 10,
-                        height: 10,
+                        width: 7,
+                        height: 7,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: used ? Colors.transparent : avatarColor,
