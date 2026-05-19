@@ -3,8 +3,8 @@ import 'piece.dart';
 /// Estado imutável do jogo. `copyWith` para evoluir; nunca mutar in-place.
 class GameState {
   static const int boardSize = 5;
-  static const int stockSize = 6;
-  static const int maxActions = 20; // 10 ações por jogador
+  static const int stockSize = 10;
+  static const int maxActions = 40; // 20 turnos × 2 jogadores
 
   /// board[row][col] — nullable. row 0 é topo.
   final List<List<Piece?>> board;

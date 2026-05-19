@@ -47,7 +47,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
         _StepData(
           title: l10n.tutorialStep4Title,
           body: l10n.tutorialStep4Body,
-          illustration: _destructionIllustration,
+          illustration: _chargeIllustration,
         ),
         _StepData(
           title: l10n.tutorialStep5Title,
@@ -205,10 +205,48 @@ class _TutorialScreenState extends State<TutorialScreen> {
         rightColor: AppColors.haloPlus,
         kind: _PairKind.repel,
       );
-  Widget _destructionIllustration() => _PairIllustration(
-        leftColor: AppColors.haloPlus,
-        rightColor: AppColors.haloPlus,
-        kind: _PairKind.destroy,
+  Widget _chargeIllustration() => Stack(
+        alignment: Alignment.center,
+        children: [
+          // halo intenso
+          Container(
+            width: 160,
+            height: 160,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.haloPlus.withValues(alpha: 0.6),
+                  AppColors.haloPlus.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
+          ),
+          _IllustrationDot(symbol: '⊕', color: AppColors.haloPlus),
+          // 3 charge dots na base
+          Positioned(
+            bottom: 36,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(3, (i) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.haloPlus,
+                      boxShadow: [
+                        BoxShadow(color: AppColors.haloPlus, blurRadius: 6),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
       );
   Widget _resonanceIllustration() => Row(
         mainAxisAlignment: MainAxisAlignment.center,

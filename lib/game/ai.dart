@@ -152,19 +152,12 @@ class AiEngine {
         final p = state.board[r][c];
         if (p == null) continue;
 
-        final isEdge = r == 0 || r == boardSize - 1 || c == 0 || c == boardSize - 1;
-        final isCorner = (r == 0 || r == boardSize - 1) && (c == 0 || c == boardSize - 1);
+        // Com tabuleiro toroidal, bordas não são mais vulneráveis. Posição
+        // mid tem leve vantagem só pela quantidade de pares opostos
+        // possíveis (mais rotas de colisão de atração).
         final isCenter = r == mid && c == mid;
 
         double cellScore = 0.0;
-
-        // Bordas são vulneráveis a empurrão pra fora
-        if (isCorner) {
-          cellScore -= 2.5;
-        } else if (isEdge) {
-          cellScore -= 1.5;
-        }
-        // Centro tem controle máximo (8 vizinhos)
         if (isCenter) cellScore += 1.0;
 
         // Peça carregada é uma ameaça grande (alcance 2)
