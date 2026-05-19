@@ -3,41 +3,44 @@ import '../models/game_action.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
 
-/// Motor de regras do Polaridade — versão 3 (física toroidal com pares).
+/// Motor de regras do Polaridade — versão 4 (toroidal, sem cadeia, colisão simétrica).
 ///
-/// Diferenças em relação à v2:
+/// Princípio unificador: **peça que se move ativamente contra um obstáculo
+/// passivo morre; passiva sobrevive**. Exceção: atração em par opostos,
+/// onde ambas as peças se movem simultaneamente — ambas morrem.
 ///
-/// 1. **Tabuleiro toroidal (wrap-around):** peças nunca caem fora. Empurrão
-///    além da borda → reaparece pelo lado oposto (Pac-Man / toro).
+/// 1. **Tabuleiro toroidal:** peças nunca caem fora. Movimento que sairia
+///    pela borda reaparece no lado oposto.
 ///
-/// 2. **Atração clássica + colisão destrutiva:** peça oposta tenta mover 1
-///    casa em direção ao epicentro. Se a casa-destino estiver ocupada (pelo
-///    epicentro ou por outra peça), a peça atraída é DESTRUÍDA. A peça onde
-///    ela "cairia" também é destruída — EXCETO se for o epicentro (que é
-///    indestrutível na sua própria onda).
+/// 2. **Atração:**
+///    - Peça oposta tenta mover 1 casa em direção ao epicentro (+1 charge).
+///    - Se destino é o epicentro (sempre ocupado) → atraída destruída.
+///    - Se destino é outra peça (caso alcance 2) → atraída destruída, peça
+///      de destino sobrevive.
+///    - Se destino é vazio → move normalmente.
+///    - **Pares opostos** (peças opostas em N+S, E+W, NE+SW ou NW+SE) →
+///      ambas se movem em direção ao epicentro → ambas se aniquilam,
+///      epicentro intacto.
 ///
-/// 3. **Atração em pares opostos:** as 4 duplas de direções contrárias
-///    (N+S, E+W, NE+SW, NW+SE) são processadas como unidade. Se há peças
-///    opostas dos DOIS lados, ambas convergem e se aniquilam (epicentro fica).
-///    Estratégia central: posicionar epicentro entre dois inimigos opostos.
+/// 3. **Repulsão:**
+///    - Peça mesma polaridade tenta mover 1 casa para longe do epicentro
+///      (+1 charge). Vetor: (dr, dc) saindo do epicentro.
+///    - Destino calculado COM wrap toroidal (sai por uma borda, entra pela
+///      outra).
+///    - Se destino é vazio → move.
+///    - Se destino é ocupado (incluindo wrap-volta pro epicentro ou outra
+///      peça) → repelida destruída, destino sobrevive.
+///    - **Sem cadeia** — single hit. Mais simples e consistente com atração.
 ///
-/// 4. **Repulsão sem destruição:** peça empurrada que sairia do tabuleiro
-///    faz wrap pro lado oposto. Continua a cadeia até achar casa vazia.
-///    Em tabuleiro cheio, o motor limita a [boardSize] iterações por
-///    segurança e descarta o movimento (estado inválido — não acontece na
-///    prática porque o jogo termina antes).
+/// 4. **Carga (Pulsar):** peça com 3+ charges, como epicentro, alcance da
+///    onda dobra para 2 (vaza por casas vazias). Charge zera após disparar.
 ///
-/// 5. **Carga (Pulsar):** peça com 3+ charges vira pulsar. Como epicentro,
-///    a onda tem alcance 2 — a peça oposta/igual pode estar a 1 OU 2 casas
-///    (a onda "vaza" por uma casa vazia). Charge zera após disparar.
+/// 5. **Ressonância:** destruir 2+ peças do oponente em uma onda → +1
+///    no estoque (3+ → +2), respeitando teto de 10.
 ///
-/// 6. **Ressonância:** destruir 2+ peças do oponente na mesma onda dá +1
-///    no estoque (3+ → +2), respeitando o teto.
-///
-/// 7. **Fim por stalemate:** se ambos estoques = 0 E nenhuma peça tem
-///    vizinho a 1 ou 2 casas (alcance máximo), a partida termina mesmo
-///    com turnos restantes. Decide pelo maior `onBoard`, desempate por
-///    `destroyed`.
+/// 6. **Fim por stalemate:** ambos estoques zerados E nenhuma peça com
+///    vizinho a ≤ alcance máximo → partida termina, decide por maior
+///    onBoard com desempate por destroyed.
 class GameLogic {
   /// 8 direções em ordem fixa: [dRow, dCol]. Índices:
   /// 0=N · 1=NE · 2=E · 3=SE · 4=S · 5=SW · 6=W · 7=NW.
@@ -215,17 +218,17 @@ class GameLogic {
         to: Cell(n.row, n.col),
         kind: ForceKind.repel,
       ));
-      _chainPushToroidal(
+      destroyedThisWave += _repelSingle(
         board: board,
-        startR: n.row,
-        startC: n.col,
+        neighbor: n,
         dr: dirs[i][0],
         dc: dirs[i][1],
         epicenterR: er,
         epicenterC: ec,
-        events: events,
-        ownerOfEpicenter: owner,
+        owner: owner,
         onBoard: onBoard,
+        destroyed: destroyed,
+        events: events,
       );
     }
 
@@ -357,30 +360,19 @@ class GameLogic {
       return killed;
     }
 
-    // Outra peça (não-epicentro): ambas destruídas
+    // Outra peça (não-epicentro): destino sobrevive, atraída morre.
+    // Consistente com repulsão e com a regra geral "ativo bate em passivo → ativo morre".
     board[neighbor.row][neighbor.col] = null;
     onBoard[attracted.owner] = (onBoard[attracted.owner] ?? 0) - 1;
     int killed = 0;
     if (attracted.owner != owner) {
       destroyed[owner] = (destroyed[owner] ?? 0) + 1;
-      killed++;
+      killed = 1;
     }
     events.add(DestroyEvent(
       from: Cell(neighbor.row, neighbor.col),
       direction: [-dr, -dc],
       piece: attracted,
-    ));
-
-    board[tr][tc] = null;
-    onBoard[destPiece.owner] = (onBoard[destPiece.owner] ?? 0) - 1;
-    if (destPiece.owner != owner) {
-      destroyed[owner] = (destroyed[owner] ?? 0) + 1;
-      killed++;
-    }
-    events.add(DestroyEvent(
-      from: Cell(tr, tc),
-      direction: [-dr, -dc],
-      piece: destPiece,
     ));
     return killed;
   }
@@ -411,68 +403,63 @@ class GameLogic {
     return killed;
   }
 
-  /// Cadeia de empurrão com wrap toroidal. Empurra peças sucessivas até achar
-  /// casa vazia OU até bater no epicentro (cuja casa nunca é empurrada).
-  /// Sem destruição — repulsão nunca mata.
-  static void _chainPushToroidal({
+  /// Repulsão single-hit com wrap toroidal. A peça repelida tenta mover 1
+  /// casa na direção (dr, dc). Destino é calculado COM wrap. Se destino é
+  /// vazio → move (+1 charge). Se ocupado → repelida destruída, destino
+  /// sobrevive. Sem cadeia.
+  /// Retorna quantas peças do oponente foram destruídas.
+  static int _repelSingle({
     required List<List<Piece?>> board,
-    required int startR,
-    required int startC,
+    required _Neighbor neighbor,
     required int dr,
     required int dc,
     required int epicenterR,
     required int epicenterC,
-    required List<AnimationEvent> events,
-    required PieceOwner ownerOfEpicenter,
+    required PieceOwner owner,
     required Map<PieceOwner, int> onBoard,
+    required Map<PieceOwner, int> destroyed,
+    required List<AnimationEvent> events,
   }) {
-    final maxSteps = GameState.boardSize;
-    final chain = <List<int>>[];
-    int cr = startR;
-    int cc = startC;
-    int? destR;
-    int? destC;
-    for (int step = 0; step <= maxSteps; step++) {
-      // O epicentro nunca é deslocado — para a cadeia antes de chegar nele
-      if (cr == epicenterR && cc == epicenterC) break;
-      if (board[cr][cc] == null) {
-        destR = cr;
-        destC = cc;
-        break;
-      }
-      chain.add([cr, cc]);
-      cr = _wrapAxis(cr + dr);
-      cc = _wrapAxis(cc + dc);
-    }
-    if (destR == null || chain.isEmpty) return; // sem casa livre, ninguém se move
+    final tr = _wrapAxis(neighbor.row + dr);
+    final tc = _wrapAxis(neighbor.col + dc);
 
-    int firstFreeR = destR;
-    int firstFreeC = destC!;
-    for (int k = chain.length - 1; k >= 0; k--) {
-      final pr = chain[k][0];
-      final pc = chain[k][1];
-      final tr = firstFreeR;
-      final tc = firstFreeC;
-      final moving = board[pr][pc]!;
-      board[pr][pc] = null;
-      final landed = moving.bumpCharge();
-      board[tr][tc] = landed;
-      events.add(MoveEvent(
-        from: Cell(pr, pc),
-        to: Cell(tr, tc),
-        piece: landed,
-        chainIndex: chain.length - 1 - k,
-      ));
-      if (landed.charge > moving.charge) {
-        events.add(ChargeEvent(
-          at: Cell(tr, tc),
-          newCharge: landed.charge,
-          becameCharged: landed.isCharged && !moving.isCharged,
-        ));
+    final repelled = board[neighbor.row][neighbor.col]!;
+
+    // Destino é o epicentro (caso wrap) ou outra peça → repelida destruída
+    final destPiece = board[tr][tc];
+    if (destPiece != null) {
+      board[neighbor.row][neighbor.col] = null;
+      onBoard[repelled.owner] = (onBoard[repelled.owner] ?? 0) - 1;
+      int killed = 0;
+      if (repelled.owner != owner) {
+        destroyed[owner] = (destroyed[owner] ?? 0) + 1;
+        killed = 1;
       }
-      firstFreeR = pr;
-      firstFreeC = pc;
+      events.add(DestroyEvent(
+        from: Cell(neighbor.row, neighbor.col),
+        direction: [dr, dc],
+        piece: repelled,
+      ));
+      return killed;
     }
+
+    // Destino vazio → move
+    board[neighbor.row][neighbor.col] = null;
+    final landed = repelled.bumpCharge();
+    board[tr][tc] = landed;
+    events.add(MoveEvent(
+      from: Cell(neighbor.row, neighbor.col),
+      to: Cell(tr, tc),
+      piece: landed,
+    ));
+    if (landed.charge > repelled.charge) {
+      events.add(ChargeEvent(
+        at: Cell(tr, tc),
+        newCharge: landed.charge,
+        becameCharged: landed.isCharged && !repelled.isCharged,
+      ));
+    }
+    return 0;
   }
 
   /// Stalemate: nenhuma peça tem vizinho a até chargedRange casas.
