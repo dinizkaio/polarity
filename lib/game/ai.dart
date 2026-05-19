@@ -14,6 +14,14 @@ enum AiDifficulty {
 }
 
 /// IA com minimax + poda alpha-beta. Sem dependência de UI.
+///
+/// Avaliação considera:
+/// - peças no tabuleiro (próprias × oponente)
+/// - estoque
+/// - destruições acumuladas (importante pra desempate)
+/// - peças em borda (vulneráveis)
+/// - peças carregadas (alta ameaça, alcance 2)
+/// - controle do centro
 class AiEngine {
   final Random _rng;
   AiEngine([int? seed]) : _rng = Random(seed);
@@ -24,7 +32,6 @@ class AiEngine {
     final actions = GameLogic.legalActions(state);
     if (actions.isEmpty) return null;
 
-    // Embaralha pra variar quando empates de score existem
     actions.shuffle(_rng);
 
     final maximizing = state.currentPlayer;
@@ -40,7 +47,7 @@ class AiEngine {
         alpha: double.negativeInfinity,
         beta: double.infinity,
         maximizingOwner: maximizing,
-        maximizing: false, // próximo é o oponente
+        maximizing: false,
       );
       if (score > bestScore) {
         bestScore = score;
@@ -83,7 +90,7 @@ class AiEngine {
           ),
         );
         alpha = max(alpha, value);
-        if (alpha >= beta) break; // poda
+        if (alpha >= beta) break;
       }
       return value;
     } else {
@@ -109,43 +116,69 @@ class AiEngine {
     }
   }
 
-  /// Função de avaliação heurística.
-  /// Pesos calibrados via self-play; ajustar com base em telemetria de balance.
   double _evaluate(GameState state, PieceOwner me) {
-    final them = me == PieceOwner.player ? PieceOwner.ai : PieceOwner.player;
+    final them = me.opponent;
 
-    // Terminal: bonus/penalty grande
     if (state.winner != null) {
       return state.winner == me ? 1000.0 : -1000.0;
+    }
+    if (state.isGameOver && state.winner == null) {
+      // Empate técnico
+      return 0.0;
     }
 
     final myOnBoard = state.onBoard[me] ?? 0;
     final theirOnBoard = state.onBoard[them] ?? 0;
     final myStock = state.stock[me] ?? 0;
     final theirStock = state.stock[them] ?? 0;
+    final myDestroyed = state.destroyed[me] ?? 0;
+    final theirDestroyed = state.destroyed[them] ?? 0;
 
-    // Pesos: peças no tabuleiro valem mais que estoque; oponente vale ~1.5x (mais
-    // valioso eliminar do que preservar — pressão estratégica).
     double score = 0.0;
+    // Peças no tabuleiro pesam mais; oponente vale 1.5x (pressão)
     score += myOnBoard * 10.0;
     score -= theirOnBoard * 15.0;
     score += myStock * 2.0;
     score -= theirStock * 2.0;
 
-    // Penaliza peças minhas em borda (vulneráveis a empurrão pra fora)
-    for (int r = 0; r < GameState.boardSize; r++) {
-      for (int c = 0; c < GameState.boardSize; c++) {
+    // Destruições acumuladas (importante pro desempate justo)
+    score += myDestroyed * 3.0;
+    score -= theirDestroyed * 3.0;
+
+    final boardSize = GameState.boardSize;
+    final mid = boardSize ~/ 2;
+    for (int r = 0; r < boardSize; r++) {
+      for (int c = 0; c < boardSize; c++) {
         final p = state.board[r][c];
         if (p == null) continue;
-        final isEdge = r == 0 ||
-            r == GameState.boardSize - 1 ||
-            c == 0 ||
-            c == GameState.boardSize - 1;
-        if (!isEdge) continue;
+
+        final isEdge = r == 0 || r == boardSize - 1 || c == 0 || c == boardSize - 1;
+        final isCorner = (r == 0 || r == boardSize - 1) && (c == 0 || c == boardSize - 1);
+        final isCenter = r == mid && c == mid;
+
+        double cellScore = 0.0;
+
+        // Bordas são vulneráveis a empurrão pra fora
+        if (isCorner) {
+          cellScore -= 2.5;
+        } else if (isEdge) {
+          cellScore -= 1.5;
+        }
+        // Centro tem controle máximo (8 vizinhos)
+        if (isCenter) cellScore += 1.0;
+
+        // Peça carregada é uma ameaça grande (alcance 2)
+        if (p.isCharged) {
+          cellScore += 5.0;
+        } else if (p.charge > 0) {
+          // Charge intermediário: alguma vantagem latente
+          cellScore += 0.6 * p.charge;
+        }
+
         if (p.owner == me) {
-          score -= 1.5;
+          score += cellScore;
         } else {
-          score += 1.5;
+          score -= cellScore;
         }
       }
     }

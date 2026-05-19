@@ -20,7 +20,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
   int _step = 0;
   final _pageController = PageController();
 
-  static const int _totalSteps = 5;
+  static const int _totalSteps = 6;
 
   @override
   void dispose() {
@@ -52,6 +52,11 @@ class _TutorialScreenState extends State<TutorialScreen> {
         _StepData(
           title: l10n.tutorialStep5Title,
           body: l10n.tutorialStep5Body,
+          illustration: _resonanceIllustration,
+        ),
+        _StepData(
+          title: l10n.tutorialStep6Title,
+          body: l10n.tutorialStep6Body,
           illustration: _victoryIllustration,
         ),
       ];
@@ -205,6 +210,21 @@ class _TutorialScreenState extends State<TutorialScreen> {
         rightColor: AppColors.haloPlus,
         kind: _PairKind.destroy,
       );
+  Widget _resonanceIllustration() => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _IllustrationDot(symbol: '⊕', color: AppColors.haloPlus),
+          const SizedBox(width: 8),
+          Text('✕', style: AppTypography.h1(color: AppColors.ink2)),
+          const SizedBox(width: 4),
+          Text('2', style: AppTypography.displayXl(color: AppColors.haloPlus)),
+          const SizedBox(width: 16),
+          Icon(Icons.add, color: AppColors.haloPlus, size: 28),
+          const SizedBox(width: 8),
+          _IllustrationDot(symbol: '⊕', color: AppColors.haloPlus.withValues(alpha: 0.5)),
+        ],
+      );
+
   Widget _victoryIllustration() => Container(
         width: 120,
         height: 120,

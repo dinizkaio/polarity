@@ -18,6 +18,7 @@ class HowToPlayScreen extends StatelessWidget {
       (l10n.tutorialStep3Title, l10n.tutorialStep3Body),
       (l10n.tutorialStep4Title, l10n.tutorialStep4Body),
       (l10n.tutorialStep5Title, l10n.tutorialStep5Body),
+      (l10n.tutorialStep6Title, l10n.tutorialStep6Body),
     ];
 
     return Scaffold(

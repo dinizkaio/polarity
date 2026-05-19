@@ -1,0 +1,44 @@
+name: polaridade
+description: "Polaridade — Atração, repulsão, vitória. Jogo de tabuleiro abstrato 5×5 vs IA."
+publish_to: 'none'
+version: 0.2.0+2
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+
+  # State management
+  provider: ^6.1.2
+
+  # Persistência local
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Fontes
+  google_fonts: ^6.2.1
+
+  # Monetização — descomentar quando AdMob estiver configurado
+  # (precisa dos app IDs no AndroidManifest.xml e Info.plist primeiro)
+  google_mobile_ads: ^5.1.0
+  in_app_purchase: ^3.2.0
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  # generate: false — localizações são hand-rolled em lib/l10n/strings_*.dart
+  # Os .arb na pasta l10n/ ficam como documentação/referência de design.
+  assets:
+    - assets/images/

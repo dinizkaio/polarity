@@ -10,6 +10,11 @@ class GameState {
   final List<List<Piece?>> board;
   final Map<PieceOwner, int> stock;
   final Map<PieceOwner, int> onBoard;
+
+  /// Peças do oponente destruídas por cada jogador (acumulado da partida).
+  /// Critério de desempate justo: quem destruiu mais peças do outro vence.
+  final Map<PieceOwner, int> destroyed;
+
   final int actionsTaken;
   final PieceOwner currentPlayer;
   final PieceOwner? winner;
@@ -18,6 +23,7 @@ class GameState {
     required this.board,
     required this.stock,
     required this.onBoard,
+    required this.destroyed,
     required this.actionsTaken,
     required this.currentPlayer,
     required this.winner,
@@ -27,6 +33,7 @@ class GameState {
     board: List.generate(boardSize, (_) => List<Piece?>.filled(boardSize, null, growable: false)),
     stock: {PieceOwner.player: stockSize, PieceOwner.ai: stockSize},
     onBoard: {PieceOwner.player: 0, PieceOwner.ai: 0},
+    destroyed: {PieceOwner.player: 0, PieceOwner.ai: 0},
     actionsTaken: 0,
     currentPlayer: PieceOwner.player,
     winner: null,
@@ -36,6 +43,7 @@ class GameState {
     List<List<Piece?>>? board,
     Map<PieceOwner, int>? stock,
     Map<PieceOwner, int>? onBoard,
+    Map<PieceOwner, int>? destroyed,
     int? actionsTaken,
     PieceOwner? currentPlayer,
     PieceOwner? winner,
@@ -44,6 +52,7 @@ class GameState {
       board: board ?? this.board,
       stock: stock ?? this.stock,
       onBoard: onBoard ?? this.onBoard,
+      destroyed: destroyed ?? this.destroyed,
       actionsTaken: actionsTaken ?? this.actionsTaken,
       currentPlayer: currentPlayer ?? this.currentPlayer,
       winner: winner ?? this.winner,

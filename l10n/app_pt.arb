@@ -9,9 +9,7 @@
   "menuAbout": "Sobre",
   "menuVersionLabel": "SOBRE · v{version}",
   "@menuVersionLabel": {
-    "placeholders": {
-      "version": { "type": "String" }
-    }
+    "placeholders": { "version": { "type": "String" } }
   },
 
   "difficultyTitle": "Escolha a dificuldade",
@@ -27,10 +25,7 @@
 
   "gameTurnLabel": "TURNO {current}/{total}",
   "@gameTurnLabel": {
-    "placeholders": {
-      "current": { "type": "int" },
-      "total": { "type": "int" }
-    }
+    "placeholders": { "current": { "type": "int" }, "total": { "type": "int" } }
   },
   "gameYourTurn": "Sua vez",
   "gameAiTurn": "VEZ DA IA",
@@ -40,9 +35,7 @@
   "gameAi": "Adversário",
   "gameOnBoard": "{n} no tabuleiro",
   "@gameOnBoard": {
-    "placeholders": {
-      "n": { "type": "int" }
-    }
+    "placeholders": { "n": { "type": "int" } }
   },
   "gameStockLabel": "Estoque",
   "gameActionPlace": "Colocar",
@@ -51,11 +44,17 @@
   "gamePieceSelected": "PEÇA SELECIONADA",
   "gamePolarityPositive": "Positivo",
   "gamePolarityNegative": "Negativo",
-  "gameInstructionPlace": "Toque numa casa para escolher onde colocar a peça.",
+  "gameInstructionPlace": "Toque numa casa para colocar peça ou numa peça sua para girá-la.",
   "gameInstructionFlip": "Toque em uma peça sua para girar a polaridade dela.",
   "gameHint": "Dica",
   "gameUndo": "Desfazer",
   "gameCancel": "Cancelar",
+  "gameResonance": "RESSONÂNCIA",
+  "resonanceBonusToast": "Ressonância! +{n} peça(s) no estoque",
+  "@resonanceBonusToast": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "gameCrossoverHint": "Polaridades opostas cruzam o epicentro pro outro lado.",
 
   "endGameLabel": "FIM DE PARTIDA",
   "endVictory": "Vitória",
@@ -67,15 +66,13 @@
   "endStatYou": "VOCÊ",
   "endStatTurns": "TURNOS",
   "endStatAi": "IA",
+  "endStatDestroyed": "DESTRUÍDAS",
   "endNewGame": "Nova partida",
   "endMenu": "Menu",
   "endShareResult": "COMPARTILHAR RESULTADO",
   "shareText": "Joguei Polaridade — placar final: Você {player} × {ai} IA. Baixe o jogo!",
   "@shareText": {
-    "placeholders": {
-      "player": { "type": "int" },
-      "ai": { "type": "int" }
-    }
+    "placeholders": { "player": { "type": "int" }, "ai": { "type": "int" } }
   },
 
   "pauseTitle": "Pausado",
@@ -97,6 +94,7 @@
   "settingsSectionSound": "Som e vibração",
   "settingsSectionLanguage": "Idioma",
   "settingsSectionAbout": "Sobre",
+  "settingsSectionStore": "Loja",
   "settingsSound": "Som",
   "settingsVibration": "Vibração",
   "settingsLanguage": "Idioma",
@@ -110,31 +108,36 @@
   "settingsCredits": "Créditos",
   "settingsVersion": "Versão {version}",
   "@settingsVersion": {
-    "placeholders": {
-      "version": { "type": "String" }
-    }
+    "placeholders": { "version": { "type": "String" } }
   },
+
+  "iapRemoveAdsTitle": "Remover anúncios",
+  "iapRemoveAdsBody": "Compra única. Remove anúncios intersticiais entre partidas. As dicas e desfazer continuam usando rewarded ad (opcional).",
+  "iapRemoveAdsCta": "Remover anúncios — R$ 9,90",
+  "iapRemoveAdsActive": "Anúncios removidos · obrigado pelo apoio",
+  "iapRestore": "Restaurar compras",
+  "iapErrorGeneric": "Não foi possível concluir. Tente novamente.",
+  "iapSuccess": "Compra confirmada — anúncios removidos.",
 
   "tutorialSkip": "PULAR",
   "tutorialStep": "PASSO {current} DE {total}",
   "@tutorialStep": {
-    "placeholders": {
-      "current": { "type": "int" },
-      "total": { "type": "int" }
-    }
+    "placeholders": { "current": { "type": "int" }, "total": { "type": "int" } }
   },
   "tutorialNext": "Próximo",
   "tutorialPlayFirstGame": "Jogar minha primeira partida",
   "tutorialStep1Title": "Coloque uma peça",
   "tutorialStep1Body": "Toque em uma casa vazia e escolha a polaridade: ⊕ positiva ou ⊖ negativa.",
-  "tutorialStep2Title": "Atração",
-  "tutorialStep2Body": "Polaridades opostas se atraem. Peças vizinhas se aproximam do epicentro.",
+  "tutorialStep2Title": "Atração — cruzar pro outro lado",
+  "tutorialStep2Body": "Polaridades opostas se atraem com tanta força que passam pelo epicentro e param do outro lado. Se a outra casa estiver fora do tabuleiro, a peça é destruída.",
   "tutorialStep3Title": "Repulsão",
   "tutorialStep3Body": "Polaridades iguais se repelem. Peças vizinhas são empurradas para longe — e podem empurrar outras numa cadeia.",
   "tutorialStep4Title": "Destruição",
   "tutorialStep4Body": "Peças empurradas para fora do tabuleiro são removidas permanentemente.",
-  "tutorialStep5Title": "Vencer",
-  "tutorialStep5Body": "Sobreviva 10 turnos com mais peças no tabuleiro que o adversário — ou elimine todas as peças dele primeiro.",
+  "tutorialStep5Title": "Ressonância",
+  "tutorialStep5Body": "Destruir 2+ peças do oponente em uma única onda gera ressonância — você ganha 1 peça de bônus no estoque (até o limite).",
+  "tutorialStep6Title": "Vencer",
+  "tutorialStep6Body": "Sobreviva 10 turnos com mais peças no tabuleiro que o adversário — ou elimine todas as peças dele primeiro. Empate? Vence quem destruiu mais peças.",
 
   "howToPlayTitle": "Como jogar"
 }

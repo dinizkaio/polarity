@@ -12,6 +12,8 @@ class EndGameModal extends StatelessWidget {
   final PieceOwner? winner;
   final int playerPieces;
   final int aiPieces;
+  final int playerDestroyed;
+  final int aiDestroyed;
   final int totalTurns;
   final VoidCallback onNewGame;
   final VoidCallback onMenu;
@@ -23,6 +25,8 @@ class EndGameModal extends StatelessWidget {
     required this.playerPieces,
     required this.aiPieces,
     required this.totalTurns,
+    this.playerDestroyed = 0,
+    this.aiDestroyed = 0,
     required this.onNewGame,
     required this.onMenu,
     this.onShare,
@@ -99,6 +103,18 @@ class EndGameModal extends StatelessWidget {
                       _StatBox(label: l10n.endStatYou, value: playerPieces.toString()),
                       _StatBox(label: l10n.endStatTurns, value: totalTurns.toString()),
                       _StatBox(label: l10n.endStatAi, value: aiPieces.toString()),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(l10n.endStatDestroyed, style: AppTypography.eyebrow()),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$playerDestroyed × $aiDestroyed',
+                        style: AppTypography.monoSmall(color: AppColors.ink2, size: 13),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),

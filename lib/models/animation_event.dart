@@ -20,7 +20,8 @@ class FlipEvent extends AnimationEvent {
 
 class EpicenterEvent extends AnimationEvent {
   final Cell at;
-  const EpicenterEvent(this.at);
+  final bool isCharged;
+  const EpicenterEvent(this.at, {this.isCharged = false});
 }
 
 enum ForceKind { attract, repel }
@@ -57,7 +58,32 @@ class DestroyEvent extends AnimationEvent {
   const DestroyEvent({required this.from, required this.direction, required this.piece});
 }
 
+/// Disparado quando o charge da peça muda (cresce ou zera).
+class ChargeEvent extends AnimationEvent {
+  final Cell at;
+  final int newCharge;
+  final bool becameCharged;
+  const ChargeEvent({
+    required this.at,
+    required this.newCharge,
+    this.becameCharged = false,
+  });
+}
+
+/// Cadeia destruiu 2+ peças do oponente em uma única onda → ressonância.
+/// O dono do epicentro ganha [bonus] peças de volta no estoque (até stockSize).
+class ResonanceEvent extends AnimationEvent {
+  final PieceOwner owner;
+  final int destroyedCount;
+  final int bonus;
+  const ResonanceEvent({
+    required this.owner,
+    required this.destroyedCount,
+    required this.bonus,
+  });
+}
+
 class EndEvent extends AnimationEvent {
-  final PieceOwner? winner; // null = empate, mas regra do pie resolve sempre
+  final PieceOwner? winner;
   const EndEvent(this.winner);
 }

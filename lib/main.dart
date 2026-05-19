@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -5,16 +7,16 @@ import 'package:provider/provider.dart';
 
 import 'app.dart';
 import 'providers/settings_provider.dart';
+import 'services/ads_service.dart';
+import 'services/purchases_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Bloqueia em portrait — jogo é desenhado pra essa orientação
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
 
-  // Status bar transparente sobre o backdrop cósmico
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -29,10 +31,19 @@ Future<void> main() async {
   final settings = SettingsProvider();
   await settings.init();
 
+  final purchases = PurchasesService();
+  await purchases.init();
+
+  final ads = AdsService(purchases);
+  // Ads inicializa em background — não bloqueia o startup
+  unawaited(ads.init());
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+        ChangeNotifierProvider<PurchasesService>.value(value: purchases),
+        Provider<AdsService>.value(value: ads),
       ],
       child: const PolaridadeApp(),
     ),

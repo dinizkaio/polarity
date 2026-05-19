@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../models/piece.dart';
 import '../providers/game_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/ads_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/haptics_helper.dart';
 import '../widgets/action_bar.dart';
@@ -134,14 +135,19 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
                     winner: game.state.winner,
                     playerPieces: game.state.onBoard[PieceOwner.player] ?? 0,
                     aiPieces: game.state.onBoard[PieceOwner.ai] ?? 0,
+                    playerDestroyed: game.state.destroyed[PieceOwner.player] ?? 0,
+                    aiDestroyed: game.state.destroyed[PieceOwner.ai] ?? 0,
                     totalTurns: game.state.displayTurn,
-                    onNewGame: () {
-                      // TODO: mostrar intersticial AdMob aqui antes de reiniciar
+                    onNewGame: () async {
+                      // Mostra intersticial (no-op se anúncios removidos ou frequência não atingida)
+                      await context.read<AdsService>().maybeShowInterstitialAfterMatch();
+                      if (!mounted) return;
                       setState(() => _endShown = false);
                       context.read<GameProvider>().newGame();
                     },
-                    onMenu: () {
-                      // TODO: mostrar intersticial AdMob aqui
+                    onMenu: () async {
+                      await context.read<AdsService>().maybeShowInterstitialAfterMatch();
+                      if (!mounted) return;
                       Navigator.of(context).popUntil((r) => r.isFirst);
                     },
                     onShare: () {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../providers/settings_provider.dart';
+import '../services/purchases_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import '../widgets/cosmic_backdrop.dart';
@@ -87,10 +88,12 @@ class SettingsScreen extends StatelessWidget {
                       ],
                     ),
                     _Section(
+                      title: l10n.settingsSectionStore,
+                      children: const [_RemoveAdsTile()],
+                    ),
+                    _Section(
                       title: l10n.settingsSectionAbout,
-                      children: [
-                        _AboutTile(version: '0.1.0'),
-                      ],
+                      children: const [_AboutTile(version: '0.2.0')],
                     ),
                     const SizedBox(height: 32),
                   ],
@@ -232,6 +235,87 @@ class _LanguageTile extends StatelessWidget {
           if (v == null) return;
           onChanged(v == 'auto' ? null : Locale(v));
         },
+      ),
+    );
+  }
+}
+
+class _RemoveAdsTile extends StatelessWidget {
+  const _RemoveAdsTile();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final purchases = context.watch<PurchasesService>();
+    final product = purchases.removeAdsProduct;
+    final priceLabel = product?.price ?? l10n.iapRemoveAdsCta;
+    final canBuy = purchases.available && product != null && !purchases.adsRemoved && !purchases.purchasing;
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.shield_outlined, color: AppColors.haloPlus, size: 18),
+              const SizedBox(width: 8),
+              Text(l10n.iapRemoveAdsTitle, style: AppTypography.uiLabel(size: 15)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            purchases.adsRemoved ? l10n.iapRemoveAdsActive : l10n.iapRemoveAdsBody,
+            style: AppTypography.body(color: AppColors.ink2, size: 13),
+          ),
+          const SizedBox(height: 12),
+          if (purchases.adsRemoved)
+            Row(
+              children: [
+                const Icon(Icons.check_circle, color: AppColors.haloPlus, size: 18),
+                const SizedBox(width: 6),
+                Text(l10n.iapSuccess, style: AppTypography.monoSmall(color: AppColors.haloPlus)),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.haloPlus,
+                      foregroundColor: AppColors.bgVoid,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: canBuy
+                        ? () async {
+                            await purchases.buyRemoveAds();
+                            if (!context.mounted) return;
+                            final err = purchases.lastError;
+                            if (err != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(l10n.iapErrorGeneric)),
+                              );
+                            }
+                          }
+                        : null,
+                    child: Text(
+                      product != null
+                          ? '${l10n.iapRemoveAdsTitle} — $priceLabel'
+                          : l10n.iapRemoveAdsCta,
+                      style: AppTypography.uiButton(color: AppColors.bgVoid),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: purchases.available ? () => purchases.restore() : null,
+            child: Text(l10n.iapRestore, style: AppTypography.monoSmall()),
+          ),
+        ],
       ),
     );
   }
