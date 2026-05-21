@@ -4,7 +4,9 @@
 
 5×5, single-player vs IA (3 níveis), 1–3 min por partida. Flutter / Dart, com i18n PT/EN/ES.
 
-## v0.5.0 — diferenças em relação ao briefing original
+## v0.6.0 — diferenças em relação ao briefing original
+
+**Novidade da 0.6.0**: modo **multijogador local 1×1** — duas pessoas jogando no mesmo celular (pass-and-play). Sem IA, alternância simples de turnos. Acessível pelo botão "Jogar 1×1" no menu.
 
 **Jogo é sobre construção de padrões.** Peças não são aniquiladas em colisões — apenas reposicionadas. Vence quem forma mais linhas/colunas/diagonais.
 

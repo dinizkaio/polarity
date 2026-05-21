@@ -11,45 +11,61 @@ import '../models/piece.dart';
 
 /// Fase do jogo do ponto de vista da UI.
 enum GamePhase {
-  idle,          // sua vez, aguardando input
-  choosingPolarity, // tocou casa vazia, precisa escolher ⊕ ou ⊖
-  selectingPiece,   // selecionou peça sua, mostrando preview de flip
-  resolving,        // animando reação magnética
-  aiThinking,       // IA calculando
-  ended,            // partida terminou
+  idle,
+  choosingPolarity,
+  selectingPiece,
+  resolving,
+  aiThinking,
+  ended,
 }
 
 /// Provider principal. Orquestra estado + IA + animações.
 ///
-/// A UI escuta `gameState`, `phase`, e `currentEvents` (eventos a animar).
-/// Após animar todos os eventos, a UI chama `onAnimationComplete()` para avançar.
+/// Suporta dois modos:
+/// - **vs IA** (padrão): jogador humano contra a IA.
+/// - **local 1×1** (`localMultiplayer = true`): duas pessoas no mesmo
+///   dispositivo, alternando turnos. Sem IA, ambos `PieceOwner.player`
+///   e `PieceOwner.ai` representam jogadores humanos (P1 e P2).
 class GameProvider extends ChangeNotifier {
   AiDifficulty _difficulty;
   int _maxTurns;
+  final bool _localMultiplayer;
   final AiEngine _ai;
 
   late GameState _state;
   GamePhase _phase = GamePhase.idle;
   List<AnimationEvent> _pendingEvents = const [];
 
-  // Estado da UI durante o turno do jogador
-  ({int row, int col})? _selectedEmptyCell; // tocou casa vazia
-  ({int row, int col})? _selectedPiece;     // tocou peça sua
+  ({int row, int col})? _selectedEmptyCell;
+  ({int row, int col})? _selectedPiece;
 
   GameProvider({
     AiDifficulty difficulty = AiDifficulty.apprentice,
     int maxTurns = GameState.defaultMaxTurns,
+    bool localMultiplayer = false,
   })  : _difficulty = difficulty,
         _maxTurns = maxTurns,
+        _localMultiplayer = localMultiplayer,
         _ai = AiEngine() {
     _state = GameState.newGame(maxTurns: maxTurns);
     _bootstrapTurn();
   }
 
   int get maxTurns => _maxTurns;
+  bool get localMultiplayer => _localMultiplayer;
 
-  /// Se IA começou na partida (sorteio inicial), agenda o turno dela.
+  /// Quem está jogando agora é humano? No modo local, sempre é.
+  /// No modo vs IA, só se for o PieceOwner.player.
+  bool get currentTurnIsHuman {
+    if (_localMultiplayer) return true;
+    return _state.currentPlayer == PieceOwner.player;
+  }
+
   void _bootstrapTurn() {
+    if (_localMultiplayer) {
+      _phase = GamePhase.idle;
+      return;
+    }
     if (_state.currentPlayer == PieceOwner.ai && !_state.isGameOver) {
       _phase = GamePhase.aiThinking;
       _scheduleAiTurn();
@@ -68,7 +84,6 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reset completo. Use ao iniciar nova partida.
   void newGame() {
     _state = GameState.newGame(maxTurns: _maxTurns);
     _phase = GamePhase.idle;
@@ -79,38 +94,31 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Jogador tocou em uma casa. Decide o que fazer com base no estado da casa.
   void tapCell(int row, int col) {
     if (_phase != GamePhase.idle &&
         _phase != GamePhase.choosingPolarity &&
         _phase != GamePhase.selectingPiece) {
       return;
     }
-    if (_state.currentPlayer != PieceOwner.player) return;
+    if (!currentTurnIsHuman) return;
 
     final piece = _state.pieceAt(row, col);
+    final owner = _state.currentPlayer;
 
     if (piece == null) {
-      // Casa vazia → entra em modo de escolha de polaridade
-      if ((_state.stock[PieceOwner.player] ?? 0) <= 0) {
-        // Sem peças no estoque, não pode colocar — só pode flipar
-        return;
-      }
+      if ((_state.stock[owner] ?? 0) <= 0) return;
       _selectedEmptyCell = (row: row, col: col);
       _selectedPiece = null;
       _phase = GamePhase.choosingPolarity;
       notifyListeners();
-    } else if (piece.owner == PieceOwner.player) {
-      // Peça do jogador → modo de flip
+    } else if (piece.owner == owner) {
       _selectedPiece = (row: row, col: col);
       _selectedEmptyCell = null;
       _phase = GamePhase.selectingPiece;
       notifyListeners();
     }
-    // Peças do oponente: ignora (sem ação)
   }
 
-  /// Cancela seleção atual (jogador desistiu da ação).
   void cancelSelection() {
     _selectedEmptyCell = null;
     _selectedPiece = null;
@@ -118,23 +126,20 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Confirma colocação com a polaridade escolhida.
   void confirmPlace(Polarity polarity) {
     final cell = _selectedEmptyCell;
     if (cell == null) return;
-    if (_state.currentPlayer != PieceOwner.player) return;
+    if (!currentTurnIsHuman) return;
     _executeAction(PlaceAction(row: cell.row, col: cell.col, polarity: polarity));
   }
 
-  /// Confirma flip da peça selecionada.
   void confirmFlip() {
     final cell = _selectedPiece;
     if (cell == null) return;
-    if (_state.currentPlayer != PieceOwner.player) return;
+    if (!currentTurnIsHuman) return;
     _executeAction(FlipAction(row: cell.row, col: cell.col));
   }
 
-  /// Aplica ação, prepara eventos para animar e bloqueia UI.
   void _executeAction(GameAction action) {
     final result = GameLogic.applyAction(_state, action);
     if (result == null) return;
@@ -147,13 +152,18 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Chamado pela UI quando todas as animações de _pendingEvents acabaram.
-  /// Avança o jogo (turno da IA ou volta pro jogador).
   void onAnimationComplete() {
     _pendingEvents = const [];
 
     if (_state.isGameOver) {
       _phase = GamePhase.ended;
+      notifyListeners();
+      return;
+    }
+
+    if (_localMultiplayer) {
+      // Próximo turno também humano — não agenda IA
+      _phase = GamePhase.idle;
       notifyListeners();
       return;
     }
@@ -168,9 +178,7 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
-  /// Agenda turno da IA com pequeno delay pra parecer humano.
   void _scheduleAiTurn() {
-    // 700ms-1200ms aleatório — varia pra não parecer mecânico
     final delayMs = 700 + (DateTime.now().millisecondsSinceEpoch % 500);
     Future.delayed(Duration(milliseconds: delayMs), () {
       if (_state.currentPlayer != PieceOwner.ai || _state.isGameOver) return;

@@ -7,6 +7,7 @@ import '../widgets/cosmic_backdrop.dart';
 import '../widgets/primary_button.dart';
 import 'difficulty_screen.dart';
 import 'how_to_play_screen.dart';
+import 'local_setup_screen.dart';
 import 'settings_screen.dart';
 
 class MenuScreen extends StatelessWidget {
@@ -56,7 +57,16 @@ class MenuScreen extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                GhostButton(
+                  label: l10n.menuPlayLocal,
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const LocalSetupScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
                 GhostButton(
                   label: l10n.menuHowToPlay,
                   onPressed: () {
@@ -65,7 +75,7 @@ class MenuScreen extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 GhostButton(
                   label: l10n.menuSettings,
                   onPressed: () {
