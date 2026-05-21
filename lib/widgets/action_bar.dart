@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/game_action.dart';
 import '../models/piece.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_colors.dart';
@@ -56,6 +57,30 @@ class ActionBar extends StatelessWidget {
           onCancel: game.cancelSelection,
           prompt: l10n.gamePieceSelected,
           cancelLabel: l10n.gameCancel,
+        ),
+        GamePhase.previewing => _PreviewActions(
+          currentPolarity: game.previewPolarity ?? Polarity.plus,
+          isPlace: game.previewAction is PlaceAction,
+          canPickNeutral: game.canPlaceNeutral(game.state.currentPlayer) ||
+              game.previewPolarity == Polarity.neutral,
+          onChange: (target) {
+            HapticsHelper.selection(settings);
+            if (game.previewAction is PlaceAction) {
+              game.confirmPlace(target);
+            } else {
+              game.confirmFlip(target);
+            }
+          },
+          onConfirm: () {
+            HapticsHelper.medium(settings);
+            game.confirmPreview();
+          },
+          onCancel: () {
+            HapticsHelper.selection(settings);
+            game.cancelPreview();
+          },
+          confirmLabel: l10n.previewConfirm,
+          cancelLabel: l10n.previewCancel,
         ),
         GamePhase.aiThinking => _Faded(text: l10n.gameAiTurn),
         GamePhase.resolving => _Faded(text: l10n.gameMagneticReaction),
@@ -272,6 +297,205 @@ class _FlipChooser extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Barra de ação no modo PREVIEW. Mostra três opções de polaridade (com a
+/// atual destacada), botão Confirmar (grande) e Cancelar.
+class _PreviewActions extends StatelessWidget {
+  final Polarity currentPolarity;
+  final bool isPlace;
+  final bool canPickNeutral;
+  final ValueChanged<Polarity> onChange;
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+  final String confirmLabel;
+  final String cancelLabel;
+
+  const _PreviewActions({
+    required this.currentPolarity,
+    required this.isPlace,
+    required this.canPickNeutral,
+    required this.onChange,
+    required this.onConfirm,
+    required this.onCancel,
+    required this.confirmLabel,
+    required this.cancelLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _MiniPolarityChip(
+                symbol: '⊕',
+                color: AppColors.haloPlus,
+                selected: currentPolarity == Polarity.plus,
+                onTap: currentPolarity == Polarity.plus ? null : () => onChange(Polarity.plus),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _MiniPolarityChip(
+                symbol: '⊖',
+                color: AppColors.haloMinus,
+                selected: currentPolarity == Polarity.minus,
+                onTap: currentPolarity == Polarity.minus ? null : () => onChange(Polarity.minus),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _MiniPolarityChip(
+                symbol: '○',
+                color: AppColors.ink2,
+                selected: currentPolarity == Polarity.neutral,
+                onTap: (currentPolarity == Polarity.neutral || !canPickNeutral)
+                    ? null
+                    : () => onChange(Polarity.neutral),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: _ConfirmButton(label: confirmLabel, onTap: onConfirm),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CancelButton(label: cancelLabel, onTap: onCancel),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniPolarityChip extends StatelessWidget {
+  final String symbol;
+  final Color color;
+  final bool selected;
+  final VoidCallback? onTap;
+  const _MiniPolarityChip({
+    required this.symbol,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Opacity(
+      opacity: enabled || selected ? 1.0 : 0.3,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: selected
+              ? LinearGradient(
+                  colors: [color.withValues(alpha: 0.7), color.withValues(alpha: 0.3)],
+                )
+              : null,
+          color: selected ? null : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? color : color.withValues(alpha: 0.3),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap,
+            child: SizedBox(
+              height: 38,
+              child: Center(
+                child: Text(
+                  symbol,
+                  style: AppTypography.pieceSymbol(color: AppColors.ink, size: 18),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfirmButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _ConfirmButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryButtonGradient,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(color: AppColors.haloPlus.withValues(alpha: 0.4), blurRadius: 12),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: onTap,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_rounded, color: AppColors.bgVoid, size: 18),
+                  const SizedBox(width: 6),
+                  Text(label, style: AppTypography.uiButton(color: AppColors.bgVoid).copyWith(fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CancelButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _CancelButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: onTap,
+            child: Center(
+              child: Text(label, style: AppTypography.uiButton(color: AppColors.ink2).copyWith(fontSize: 14)),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

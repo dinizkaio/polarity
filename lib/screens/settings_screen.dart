@@ -42,6 +42,14 @@ class SettingsScreen extends StatelessWidget {
                     _Section(
                       title: l10n.settingsSectionGameplay,
                       children: [
+                        _PreviewModeTile(
+                          label: l10n.settingsPreviewMode,
+                          selected: settings.previewMode,
+                          onChanged: (v) => settings.previewMode = v,
+                          autoLabel: l10n.settingsPreviewAuto,
+                          alwaysLabel: l10n.settingsPreviewAlways,
+                          neverLabel: l10n.settingsPreviewNever,
+                        ),
                         _SwitchTile(
                           label: l10n.settingsReducedMotion,
                           value: settings.reducedMotion,
@@ -93,7 +101,7 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     _Section(
                       title: l10n.settingsSectionAbout,
-                      children: const [_AboutTile(version: '0.7.0')],
+                      children: const [_AboutTile(version: '0.8.0')],
                     ),
                     const SizedBox(height: 32),
                   ],
@@ -356,6 +364,72 @@ class _AboutTile extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PreviewModeTile extends StatelessWidget {
+  final String label;
+  final PreviewMode selected;
+  final ValueChanged<PreviewMode> onChanged;
+  final String autoLabel;
+  final String alwaysLabel;
+  final String neverLabel;
+
+  const _PreviewModeTile({
+    required this.label,
+    required this.selected,
+    required this.onChanged,
+    required this.autoLabel,
+    required this.alwaysLabel,
+    required this.neverLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final options = [
+      (PreviewMode.auto, autoLabel),
+      (PreviewMode.always, alwaysLabel),
+      (PreviewMode.never, neverLabel),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: AppTypography.body(color: AppColors.ink, size: 15)),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: options.map((o) {
+                final isSel = o.$1 == selected;
+                return GestureDetector(
+                  onTap: () => onChanged(o.$1),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSel ? AppColors.haloMinus.withValues(alpha: 0.4) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      o.$2,
+                      style: AppTypography.monoSmall(
+                        color: isSel ? AppColors.ink : AppColors.ink3,
+                        size: 12,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

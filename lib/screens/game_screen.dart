@@ -27,21 +27,46 @@ class GameScreen extends StatelessWidget {
     this.localMultiplayer = false,
   });
 
+  /// Resolve se preview deve estar ativo para esta combinação.
+  static bool resolvePreviewEnabled(
+    PreviewMode mode,
+    AiDifficulty difficulty,
+    bool localMultiplayer,
+  ) {
+    switch (mode) {
+      case PreviewMode.always:
+        return true;
+      case PreviewMode.never:
+        return false;
+      case PreviewMode.auto:
+        if (localMultiplayer) return true;
+        return difficulty == AiDifficulty.apprentice;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
+    final previewEnabled = resolvePreviewEnabled(
+      settings.previewMode,
+      difficulty,
+      localMultiplayer,
+    );
     return ChangeNotifierProvider(
       create: (_) => GameProvider(
         difficulty: difficulty,
         maxTurns: maxTurns,
         localMultiplayer: localMultiplayer,
+        previewEnabled: previewEnabled,
       ),
-      child: const _GameScreenBody(),
+      child: _GameScreenBody(previewEnabled: previewEnabled),
     );
   }
 }
 
 class _GameScreenBody extends StatefulWidget {
-  const _GameScreenBody();
+  final bool previewEnabled;
+  const _GameScreenBody({required this.previewEnabled});
 
   @override
   State<_GameScreenBody> createState() => _GameScreenBodyState();
@@ -50,6 +75,15 @@ class _GameScreenBody extends StatefulWidget {
 class _GameScreenBodyState extends State<_GameScreenBody> {
   bool _paused = false;
   bool _endShown = false;
+
+  @override
+  void didUpdateWidget(covariant _GameScreenBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.previewEnabled != widget.previewEnabled) {
+      // Settings mudou: propaga pro provider
+      context.read<GameProvider>().previewEnabled = widget.previewEnabled;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

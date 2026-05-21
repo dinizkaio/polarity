@@ -4,9 +4,11 @@
 
 5×5, single-player vs IA (3 níveis), 1–3 min por partida. Flutter / Dart, com i18n PT/EN/ES.
 
-## v0.7.0 — diferenças em relação ao briefing original
+## v0.8.0 — diferenças em relação ao briefing original
 
-**Novidades da 0.7.0**:
+**Novidade da 0.8.0**: **preview de jogada**. Antes de confirmar uma jogada, o jogador vê o resultado projetado (peças nas novas posições + setinhas + halos de runs novas + pontos previstos + indicação de roubos de 5-em-linha). Pode trocar polaridade pra comparar alternativas, ou cancelar. Configurável em Ajustes (`auto`/`sempre`/`nunca`); default é `auto` — ativo no Aprendiz e no modo 1×1, oculto em Adepto/Mestre.
+
+**Da 0.7.0**:
 - **Peças neutras (○)**: cada jogador pode ter até 2 simultâneas. Imunes a atração/repulsão, servem como barreira. Place oferece 3 polaridades (⊕/⊖/○); flip permite alternar entre as três.
 - **Fim de jogo forçado**: quando ambos os jogadores esgotam o estoque, partida acaba imediatamente, independente de turnos.
 

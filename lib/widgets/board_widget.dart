@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../game/game_logic.dart';
 import '../l10n/app_localizations.dart';
 import '../models/animation_event.dart';
 import '../models/game_state.dart';
@@ -317,6 +318,34 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
               ),
             ),
           ),
+          // Overlay de preview de jogada
+          if (game.phase == GamePhase.previewing && game.previewResult != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _PreviewOverlayPainter(
+                    events: game.previewResult!.events,
+                    cellSize: cellSize,
+                    gap: gap,
+                    padding: padding,
+                  ),
+                ),
+              ),
+            ),
+          if (game.phase == GamePhase.previewing && game.previewResult != null)
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 12,
+              child: IgnorePointer(
+                child: Center(
+                  child: _PreviewToast(
+                    state: game.state,
+                    result: game.previewResult!,
+                  ),
+                ),
+              ),
+            ),
           // Toast de pontuação
           if (_activeLine != null)
             Positioned(
@@ -355,12 +384,18 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
   }
 
   Widget _buildCell(GameProvider game, SettingsProvider settings, int row, int col, double cellSize) {
-    final piece = _displayBoard[row][col];
+    final isPreviewing =
+        game.phase == GamePhase.previewing && game.previewResult != null;
+    // Em modo preview, renderiza o board PROJETADO (resultado da ação) com opacity.
+    final pieceToShow = isPreviewing
+        ? game.previewResult!.newState.board[row][col]
+        : _displayBoard[row][col];
     final isSelected = game.selectedPiece?.row == row && game.selectedPiece?.col == col;
     final isTargetable = game.phase == GamePhase.choosingPolarity &&
         game.selectedEmptyCell?.row == row &&
         game.selectedEmptyCell?.col == col;
     final isEpicenter = _epicenter?.row == row && _epicenter?.col == col;
+    final piece = pieceToShow;
 
     Color cellBg = Colors.white.withValues(alpha: 0.025);
     BoxBorder? border;
@@ -386,16 +421,19 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
         child: Center(
           child: piece == null
               ? const SizedBox.shrink()
-              : AnimatedScale(
-                  scale: isEpicenter ? 1.18 : (isSelected ? 1.08 : 1.0),
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  child: PieceWidget(
-                    piece: piece,
-                    size: cellSize,
-                    colorblindMode: settings.colorblind,
-                    selected: isSelected,
-                    epicenter: isEpicenter,
+              : Opacity(
+                  opacity: isPreviewing ? 0.55 : 1.0,
+                  child: AnimatedScale(
+                    scale: isEpicenter ? 1.18 : (isSelected ? 1.08 : 1.0),
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    child: PieceWidget(
+                      piece: piece,
+                      size: cellSize,
+                      colorblindMode: settings.colorblind,
+                      selected: isSelected,
+                      epicenter: isEpicenter,
+                    ),
                   ),
                 ),
         ),
@@ -580,4 +618,147 @@ class _RecyclePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RecyclePainter old) => old.progress != progress;
+}
+
+/// Overlay desenhado quando `phase == previewing`. Mostra:
+/// - Setinhas dos movimentos previstos (origem → destino)
+/// - Halo dourado nas células de runs novas (LineCompletedEvents)
+/// - X vermelho nas peças que serão roubadas (DestroyEvents)
+class _PreviewOverlayPainter extends CustomPainter {
+  final List<AnimationEvent> events;
+  final double cellSize;
+  final double gap;
+  final double padding;
+
+  const _PreviewOverlayPainter({
+    required this.events,
+    required this.cellSize,
+    required this.gap,
+    required this.padding,
+  });
+
+  Offset _center(Cell c) => Offset(
+        padding + c.col * (cellSize + gap) + cellSize / 2,
+        padding + c.row * (cellSize + gap) + cellSize / 2,
+      );
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Halo dourado nas células de runs novas (LineCompletedEvent)
+    for (final e in events) {
+      if (e is! LineCompletedEvent) continue;
+      final color = e.uniformPolarity ? AppColors.haloPlus : AppColors.ink;
+      for (final cell in e.cells) {
+        final c = _center(cell);
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromCenter(center: c, width: cellSize, height: cellSize),
+          const Radius.circular(12),
+        );
+        canvas.drawRRect(
+          rect,
+          Paint()
+            ..color = color.withValues(alpha: 0.35)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        );
+      }
+    }
+
+    // 2. Setinhas de movimento (MoveEvent) e swap (SwapEvent)
+    for (final e in events) {
+      if (e is MoveEvent) {
+        _drawArrow(canvas, _center(e.from), _center(e.to), AppColors.haloMinus);
+      } else if (e is SwapEvent) {
+        _drawArrow(canvas, _center(e.cellA), _center(e.cellB), AppColors.haloMinus);
+        _drawArrow(canvas, _center(e.cellB), _center(e.cellA), AppColors.haloMinus);
+      }
+    }
+
+    // 3. X vermelho nas peças destruídas (DestroyEvent)
+    for (final e in events) {
+      if (e is! DestroyEvent) continue;
+      final c = _center(e.from);
+      final paint = Paint()
+        ..color = AppColors.critical
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1);
+      final r = cellSize * 0.28;
+      canvas.drawLine(c + Offset(-r, -r), c + Offset(r, r), paint);
+      canvas.drawLine(c + Offset(-r, r), c + Offset(r, -r), paint);
+    }
+  }
+
+  void _drawArrow(Canvas canvas, Offset from, Offset to, Color color) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.9)
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2);
+    canvas.drawLine(from, to, paint);
+    // Cabeça da seta
+    final dx = to.dx - from.dx;
+    final dy = to.dy - from.dy;
+    final len = math.sqrt(dx * dx + dy * dy);
+    if (len < 1) return;
+    final ux = dx / len;
+    final uy = dy / len;
+    const headLen = 10.0;
+    const headWide = 6.0;
+    final tip = to;
+    final base = Offset(to.dx - ux * headLen, to.dy - uy * headLen);
+    final left = Offset(base.dx - uy * headWide, base.dy + ux * headWide);
+    final right = Offset(base.dx + uy * headWide, base.dy - ux * headWide);
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(left.dx, left.dy)
+      ..lineTo(right.dx, right.dy)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.95));
+  }
+
+  @override
+  bool shouldRepaint(_PreviewOverlayPainter old) => old.events != events;
+}
+
+/// Toast mostrado no topo do tabuleiro durante o preview de jogada.
+/// Indica pontos projetados + se há roubo de peça.
+class _PreviewToast extends StatelessWidget {
+  final GameState state;
+  final ActionResult result;
+
+  const _PreviewToast({required this.state, required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final me = state.currentPlayer;
+    final them = me.opponent;
+    final myPtsDiff = (result.newState.points[me] ?? 0) - (state.points[me] ?? 0);
+    final theirPtsDiff = (result.newState.points[them] ?? 0) - (state.points[them] ?? 0);
+    final stealCount = result.events.whereType<DestroyEvent>().length;
+
+    final buf = StringBuffer(l10n.previewLabel);
+    if (myPtsDiff > 0) buf.write('  ·  +$myPtsDiff');
+    if (theirPtsDiff > 0) buf.write('  ·  ${l10n.previewOppGains(theirPtsDiff)}');
+    if (stealCount > 0) buf.write('  ·  ${l10n.previewSteal(stealCount)}');
+    if (myPtsDiff == 0 && theirPtsDiff == 0 && stealCount == 0) {
+      buf.write('  ·  ${l10n.previewNoEffect}');
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.bgVoid.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.haloMinus.withValues(alpha: 0.6), width: 1),
+        boxShadow: [
+          BoxShadow(color: AppColors.haloMinus.withValues(alpha: 0.3), blurRadius: 12),
+        ],
+      ),
+      child: Text(
+        buf.toString(),
+        style: AppTypography.monoSmall(color: AppColors.ink, size: 11),
+      ),
+    );
+  }
 }

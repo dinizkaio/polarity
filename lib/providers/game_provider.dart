@@ -14,6 +14,7 @@ enum GamePhase {
   idle,
   choosingPolarity,
   selectingPiece,
+  previewing,
   resolving,
   aiThinking,
   ended,
@@ -30,6 +31,7 @@ class GameProvider extends ChangeNotifier {
   AiDifficulty _difficulty;
   int _maxTurns;
   final bool _localMultiplayer;
+  bool _previewEnabled;
   final AiEngine _ai;
 
   late GameState _state;
@@ -39,17 +41,35 @@ class GameProvider extends ChangeNotifier {
   ({int row, int col})? _selectedEmptyCell;
   ({int row, int col})? _selectedPiece;
 
+  // Estado de preview de jogada
+  ActionResult? _previewResult;
+  GameAction? _previewAction;
+  Polarity? _previewPolarity;
+
   GameProvider({
     AiDifficulty difficulty = AiDifficulty.apprentice,
     int maxTurns = GameState.defaultMaxTurns,
     bool localMultiplayer = false,
+    bool previewEnabled = false,
   })  : _difficulty = difficulty,
         _maxTurns = maxTurns,
         _localMultiplayer = localMultiplayer,
+        _previewEnabled = previewEnabled,
         _ai = AiEngine() {
     _state = GameState.newGame(maxTurns: maxTurns);
     _bootstrapTurn();
   }
+
+  bool get previewEnabled => _previewEnabled;
+  set previewEnabled(bool v) {
+    if (_previewEnabled == v) return;
+    _previewEnabled = v;
+    notifyListeners();
+  }
+
+  ActionResult? get previewResult => _previewResult;
+  GameAction? get previewAction => _previewAction;
+  Polarity? get previewPolarity => _previewPolarity;
 
   int get maxTurns => _maxTurns;
   bool get localMultiplayer => _localMultiplayer;
@@ -122,26 +142,75 @@ class GameProvider extends ChangeNotifier {
   void cancelSelection() {
     _selectedEmptyCell = null;
     _selectedPiece = null;
+    _previewResult = null;
+    _previewAction = null;
+    _previewPolarity = null;
     _phase = GamePhase.idle;
     notifyListeners();
   }
 
+  /// Place de uma peça: se preview ligado, entra em modo previewing.
+  /// Senão, executa direto.
   void confirmPlace(Polarity polarity) {
     final cell = _selectedEmptyCell;
     if (cell == null) return;
     if (!currentTurnIsHuman) return;
-    _executeAction(PlaceAction(row: cell.row, col: cell.col, polarity: polarity));
+    final action = PlaceAction(row: cell.row, col: cell.col, polarity: polarity);
+    if (_previewEnabled) {
+      _enterPreview(action, polarity);
+    } else {
+      _executeAction(action);
+    }
   }
 
+  /// Flip para uma polaridade: se preview ligado, entra em modo previewing.
+  /// Senão, executa direto.
   void confirmFlip(Polarity targetPolarity) {
     final cell = _selectedPiece;
     if (cell == null) return;
     if (!currentTurnIsHuman) return;
-    _executeAction(FlipAction(
+    final action = FlipAction(
       row: cell.row,
       col: cell.col,
       targetPolarity: targetPolarity,
-    ));
+    );
+    if (_previewEnabled) {
+      _enterPreview(action, targetPolarity);
+    } else {
+      _executeAction(action);
+    }
+  }
+
+  void _enterPreview(GameAction action, Polarity polarity) {
+    final result = GameLogic.applyAction(_state, action);
+    if (result == null) return;
+    _previewAction = action;
+    _previewPolarity = polarity;
+    _previewResult = result;
+    _phase = GamePhase.previewing;
+    notifyListeners();
+  }
+
+  /// Confirma a jogada visualizada — executa de verdade (com animações).
+  void confirmPreview() {
+    final action = _previewAction;
+    if (action == null) return;
+    _previewResult = null;
+    _previewAction = null;
+    _previewPolarity = null;
+    _executeAction(action);
+  }
+
+  /// Cancela o preview e volta pra seleção anterior.
+  void cancelPreview() {
+    final wasPlace = _previewAction is PlaceAction;
+    _previewResult = null;
+    _previewAction = null;
+    _previewPolarity = null;
+    _phase = wasPlace
+        ? (_selectedEmptyCell != null ? GamePhase.choosingPolarity : GamePhase.idle)
+        : (_selectedPiece != null ? GamePhase.selectingPiece : GamePhase.idle);
+    notifyListeners();
   }
 
   /// Quantas peças neutras [owner] tem no tabuleiro (limite é 2).
