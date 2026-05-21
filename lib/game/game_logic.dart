@@ -3,51 +3,53 @@ import '../models/game_action.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
 
-/// Motor de regras do Polaridade — versão 5 (passagem orbital + pares).
+/// Motor de regras do Polaridade — versão 6 (construção de padrões).
 ///
-/// **Atração agora salta pelo epicentro** (em vez de mover em direção a ele).
-/// A peça oposta vizinha "pula por cima" do epicentro e aterrissa na casa
-/// simétrica do outro lado. Resolve o problema de tabuleiro vazio: peças
-/// agora podem coexistir vizinhas sem se aniquilar a cada ação.
+/// Mudança de paradigma: o jogo deixa de ser sobre **destruição** e passa a
+/// ser sobre **construção de padrões**. Peças não são mais eliminadas em
+/// colisões — apenas reposicionadas. Pontuação vem de linhas/colunas/diagonais.
 ///
-/// 1. **Tabuleiro toroidal:** peças nunca caem fora. Movimento que sairia
-///    pela borda reaparece no lado oposto.
+/// **Movimento:**
 ///
-/// 2. **Atração (passagem orbital):**
-///    - Solo: peça oposta a step S do epicentro pula pra step S do LADO
-///      OPOSTO (posição simétrica em relação ao epicentro). Charge +1.
-///    - Pares: peças opostas em ambos os lados (ex: N e S) tentam atravessar
-///      o epicentro simultaneamente; colidem no meio → ambas aniquiladas
-///      (epicentro intacto). Esta é a jogada-chave do jogo.
-///    - Destino ocupado (raro, geralmente via wrap): atraída destruída.
+/// 1. **Atração orbital (solo):** peça oposta vizinha do epicentro pula por
+///    cima dele e cai na casa simétrica do outro lado (com wrap toroidal).
+///    A casa simétrica está sempre vazia por construção: quando ela tem
+///    peça oposta, a regra de PAR já é acionada primeiro.
 ///
-/// 3. **Repulsão:**
-///    - Peça mesma polaridade tenta mover 1 casa para longe do epicentro
-///      (+1 charge). Vetor: (dr, dc) saindo do epicentro.
-///    - Destino calculado COM wrap toroidal.
-///    - Se destino é vazio → move.
-///    - Se destino é ocupado → repelida destruída, destino sobrevive.
-///    - Sem cadeia — single hit.
+/// 2. **Atração em par (swap):** se há peças opostas em DOIS lados do
+///    epicentro (ex: N e S), elas tentam atravessar simultaneamente —
+///    trocam de posição. Nenhuma é destruída.
 ///
-/// 4. **Carga (Pulsar):** peça com 3+ charges, como epicentro, alcance da
-///    onda dobra para 2 (vaza por casas vazias). Charge zera após disparar.
+/// 3. **Repulsão:** peça mesma polaridade tenta mover 1 casa pra longe do
+///    epicentro (com wrap). Se a casa-destino estiver ocupada, **fica
+///    parada** — sem cadeia, sem destruição.
 ///
-/// 5. **Ressonância:** destruir 2+ peças do oponente em uma onda → +1
-///    no estoque (3+ → +2), respeitando teto de 10.
+/// 4. **Flip:** trocar polaridade vale 1 turno; a onda magnética dispara
+///    imediatamente com a peça flipada como epicentro.
 ///
-/// 6. **Fim por stalemate (duas vias):**
-///    - **Geométrico (rápido):** ambos estoques zerados E nenhuma peça com
-///      vizinho a ≤ alcance máximo.
-///    - **Por inércia (robusto):** 4 ações consecutivas sem nenhum evento
-///      de Move ou Destroy (peças isoladas + flips inúteis). Pega o caso
-///      em que ainda há estoque mas ninguém consegue causar reação.
-///    Decide por maior onBoard, desempate por destroyed.
+/// **Pontuação por padrões (no fim de cada turno):**
 ///
-/// 7. **Primeiro jogador aleatório:** `GameState.newGame()` sorteia 50/50.
+/// Identifica, em cada uma das 12 linhas possíveis (5 horizontais, 5
+/// verticais, 2 diagonais), a maior subsequência consecutiva do mesmo dono:
+///
+/// | Comprimento | Polaridade | Pontos |
+/// |---|---|---|
+/// | 3 | qualquer | +1 |
+/// | 4 | qualquer | +3 |
+/// | 5 | mista | +5 |
+/// | 5 | toda igual | +10 |
+///
+/// Pontuação acontece quando uma linha SUPERA seu próprio recorde histórico
+/// (por dono). Evita farming passivo. Quando atinge 5, peças voltam pro
+/// estoque do dono (reciclagem), recorde da linha reseta — pode pontuar de
+/// novo na reconstrução.
+///
+/// **Fim de jogo:**
+/// - Primeiro a chegar a 15 pontos vence imediatamente
+/// - OU 20 turnos esgotados, vence quem tem mais pontos
+/// - OU stalemate por inércia (4 ações vazias)
 class GameLogic {
-  /// 8 direções em ordem fixa: [dRow, dCol]. Índices:
-  /// 0=N · 1=NE · 2=E · 3=SE · 4=S · 5=SW · 6=W · 7=NW.
-  /// Pares opostos: (0,4) (1,5) (2,6) (3,7).
+  /// 8 direções em ordem fixa. Pares opostos: (0,4), (1,5), (2,6), (3,7).
   static const List<List<int>> dirs = [
     [-1, 0],  // 0 N
     [-1, 1],  // 1 NE
@@ -59,37 +61,29 @@ class GameLogic {
     [-1, -1], // 7 NW
   ];
 
-  /// Pares de direções opostas. Cada elemento é [indexA, indexB].
   static const List<List<int>> oppositePairs = [
-    [0, 4],  // N + S
-    [1, 5],  // NE + SW
-    [2, 6],  // E + W
-    [3, 7],  // SE + NW
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
   ];
-
-  /// Alcance da onda. Pulsar dobra.
-  static const int normalRange = 1;
-  static const int chargedRange = 2;
 
   static int _idCounter = 0;
   static int _nextId() => ++_idCounter;
 
-  /// Wrap toroidal: traz coordenadas pra dentro do tabuleiro.
   static int _wrapAxis(int v) {
     final n = GameState.boardSize;
     return ((v % n) + n) % n;
   }
 
-  static Cell _wrap(int r, int c) => Cell(_wrapAxis(r), _wrapAxis(c));
-
-  /// Aplica a ação. Retorna `null` se inválida.
   static ActionResult? applyAction(GameState state, GameAction action) {
     if (state.isGameOver) return null;
     final owner = state.currentPlayer;
     final board = state.cloneBoard();
     final stock = Map<PieceOwner, int>.from(state.stock);
     final onBoard = Map<PieceOwner, int>.from(state.onBoard);
-    final destroyed = Map<PieceOwner, int>.from(state.destroyed);
+    final points = Map<PieceOwner, int>.from(state.points);
+    final linesMaxLength = state.cloneLinesMaxLength();
     final events = <AnimationEvent>[];
 
     int er;
@@ -118,184 +112,121 @@ class GameLogic {
         events.add(FlipEvent(at: Cell(row, col), piece: piece));
     }
 
-    final epicenterWasCharged = piece.isCharged;
-    events.add(EpicenterEvent(Cell(er, ec), isCharged: epicenterWasCharged));
+    events.add(EpicenterEvent(Cell(er, ec)));
 
-    final range = epicenterWasCharged ? chargedRange : normalRange;
-    int destroyedThisWave = 0;
-
-    // ─── 1) Detecção: qual vizinho está em cada direção (1ª peça encontrada) ───
-    // Para alcance 2, a onda "vaza" por uma casa vazia adjacente ao epicentro
-    // e pega a peça a 2 casas. Sem wrap aqui — vizinhança magnética é local.
-    final neighborByDir = <int, _Neighbor>{};
+    // ─── Detecta vizinhos imediatos (alcance 1) ───
+    final neighborByDir = <int, Cell>{};
     for (int i = 0; i < dirs.length; i++) {
-      final dr = dirs[i][0];
-      final dc = dirs[i][1];
-      for (int step = 1; step <= range; step++) {
-        final nr = er + dr * step;
-        final nc = ec + dc * step;
-        // Detecção de vizinho NÃO usa wrap — só vê peças "em linha de visão"
-        // dentro do tabuleiro real.
-        if (nr < 0 || nr >= GameState.boardSize || nc < 0 || nc >= GameState.boardSize) {
-          break;
-        }
-        if (board[nr][nc] != null) {
-          neighborByDir[i] = _Neighbor(row: nr, col: nc, step: step);
-          break;
-        }
+      final nr = er + dirs[i][0];
+      final nc = ec + dirs[i][1];
+      if (nr < 0 || nr >= GameState.boardSize || nc < 0 || nc >= GameState.boardSize) {
+        continue;
+      }
+      if (board[nr][nc] != null) {
+        neighborByDir[i] = Cell(nr, nc);
       }
     }
 
-    // ─── 2) Atração: processa pares opostos ───
-    // Para cada par (N+S, E+W, NE+SW, NW+SE):
-    //   - se há peça oposta nos dois lados: ambas destruídas
-    //   - se há em um só: tenta mover em direção ao epicentro
-    final attractedHandled = <int>{}; // direções já processadas via atração
+    final processed = <int>{};
+
+    // ─── 1) Atração em par (swap) ───
     for (final pair in oppositePairs) {
       final iA = pair[0];
       final iB = pair[1];
-      final nA = neighborByDir[iA];
-      final nB = neighborByDir[iB];
-
-      final pA = nA != null ? board[nA.row][nA.col] : null;
-      final pB = nB != null ? board[nB.row][nB.col] : null;
-
-      final isAOpposite = pA != null && pA.polarity != piece.polarity;
-      final isBOpposite = pB != null && pB.polarity != piece.polarity;
-
-      if (isAOpposite && isBOpposite) {
-        // Par completo: ambas tentam atravessar e colidem → aniquilação mútua
-        events.add(ForceEvent(
-          from: Cell(er, ec),
-          to: Cell(nA!.row, nA.col),
-          kind: ForceKind.attract,
-        ));
-        events.add(ForceEvent(
-          from: Cell(er, ec),
-          to: Cell(nB!.row, nB.col),
-          kind: ForceKind.attract,
-        ));
-        destroyedThisWave += _annihilate(board, pA!, nA, owner, onBoard, destroyed, events);
-        destroyedThisWave += _annihilate(board, pB!, nB, owner, onBoard, destroyed, events);
-        attractedHandled.add(iA);
-        attractedHandled.add(iB);
-      } else if (isAOpposite) {
-        // Solo A → atravessa pelo epicentro pro lado B (posição simétrica)
-        destroyedThisWave += _attractAcross(
-          board: board,
-          epicenterR: er,
-          epicenterC: ec,
-          neighbor: nA!,
-          fromDirIndex: iA,
-          toDirIndex: iB,
-          owner: owner,
-          onBoard: onBoard,
-          destroyed: destroyed,
-          events: events,
-        );
-        attractedHandled.add(iA);
-      } else if (isBOpposite) {
-        destroyedThisWave += _attractAcross(
-          board: board,
-          epicenterR: er,
-          epicenterC: ec,
-          neighbor: nB!,
-          fromDirIndex: iB,
-          toDirIndex: iA,
-          owner: owner,
-          onBoard: onBoard,
-          destroyed: destroyed,
-          events: events,
-        );
-        attractedHandled.add(iB);
-      }
+      final cA = neighborByDir[iA];
+      final cB = neighborByDir[iB];
+      if (cA == null || cB == null) continue;
+      final pA = board[cA.row][cA.col]!;
+      final pB = board[cB.row][cB.col]!;
+      if (pA.polarity == piece.polarity || pB.polarity == piece.polarity) continue;
+      // Ambos opostos ao epicentro → swap
+      events.add(ForceEvent(from: Cell(er, ec), to: cA, kind: ForceKind.attract));
+      events.add(ForceEvent(from: Cell(er, ec), to: cB, kind: ForceKind.attract));
+      board[cA.row][cA.col] = pB;
+      board[cB.row][cB.col] = pA;
+      events.add(SwapEvent(cellA: cA, cellB: cB, pieceA: pA, pieceB: pB));
+      processed.add(iA);
+      processed.add(iB);
     }
 
-    // ─── 3) Repulsão: direção a direção, com wrap, sem destruição ───
+    // ─── 2) Atração solo (pula pra casa simétrica) ───
     for (int i = 0; i < dirs.length; i++) {
-      if (attractedHandled.contains(i)) continue;
-      final n = neighborByDir[i];
-      if (n == null) continue;
-      final neighborPiece = board[n.row][n.col];
-      if (neighborPiece == null) continue;
-      // Mesma polaridade ou já foi tratada como atração? Repulsão só se igual.
-      if (neighborPiece.polarity != piece.polarity) continue;
-
-      events.add(ForceEvent(
-        from: Cell(er, ec),
-        to: Cell(n.row, n.col),
-        kind: ForceKind.repel,
-      ));
-      destroyedThisWave += _repelSingle(
-        board: board,
-        neighbor: n,
-        dr: dirs[i][0],
-        dc: dirs[i][1],
-        epicenterR: er,
-        epicenterC: ec,
-        owner: owner,
-        onBoard: onBoard,
-        destroyed: destroyed,
-        events: events,
-      );
-    }
-
-    // Charge do epicentro: se era carregado, zera
-    if (epicenterWasCharged) {
-      final reset = piece.resetCharge();
-      board[er][ec] = reset;
-      piece = reset;
-      events.add(ChargeEvent(at: Cell(er, ec), newCharge: 0));
-    }
-
-    // Ressonância
-    int bonus = 0;
-    if (destroyedThisWave >= 2) {
-      bonus = destroyedThisWave >= 3 ? 2 : 1;
-      final current = stock[owner] ?? 0;
-      final effective = (current + bonus).clamp(0, GameState.stockSize) - current;
-      if (effective > 0) {
-        stock[owner] = current + effective;
+      if (processed.contains(i)) continue;
+      final c = neighborByDir[i];
+      if (c == null) continue;
+      final p = board[c.row][c.col]!;
+      if (p.polarity == piece.polarity) continue; // só opostos
+      // Casa simétrica via wrap toroidal
+      final tr = _wrapAxis(er - dirs[i][0]);
+      final tc = _wrapAxis(ec - dirs[i][1]);
+      events.add(ForceEvent(from: Cell(er, ec), to: c, kind: ForceKind.attract));
+      if (board[tr][tc] != null) {
+        // Casa ocupada — fica parada (caso raro com peça amiga oposta direção)
+        continue;
       }
-      events.add(ResonanceEvent(
-        owner: owner,
-        destroyedCount: destroyedThisWave,
-        bonus: effective,
-      ));
+      board[c.row][c.col] = null;
+      board[tr][tc] = p;
+      events.add(MoveEvent(from: c, to: Cell(tr, tc), piece: p));
+      processed.add(i);
     }
 
-    // Fim de partida
-    final actionsTaken = state.actionsTaken + 1;
-    final other = owner.opponent;
+    // ─── 3) Repulsão (peça mesma polaridade, 1 casa, sem cadeia) ───
+    for (int i = 0; i < dirs.length; i++) {
+      if (processed.contains(i)) continue;
+      final c = neighborByDir[i];
+      if (c == null) continue;
+      final p = board[c.row][c.col]!;
+      if (p.polarity != piece.polarity) continue; // só mesma polaridade
+      events.add(ForceEvent(from: Cell(er, ec), to: c, kind: ForceKind.repel));
+      final tr = _wrapAxis(c.row + dirs[i][0]);
+      final tc = _wrapAxis(c.col + dirs[i][1]);
+      if (board[tr][tc] != null) continue; // destino ocupado, fica parada
+      board[c.row][c.col] = null;
+      board[tr][tc] = p;
+      events.add(MoveEvent(from: c, to: Cell(tr, tc), piece: p));
+      processed.add(i);
+    }
 
-    // Contador de stalemate: flip sem efeito magnético (sem Move ou Destroy)
-    // incrementa; toda placement zera (peça nova é sempre progresso, mesmo
-    // sem reação imediata). Detecta "ficar girando polaridades sem nada
-    // acontecer" — sintoma do final de jogo travado.
-    final hadEffect = events.any((e) => e is MoveEvent || e is DestroyEvent);
+    // ─── 4) Pontuação por linhas (após todos os movimentos) ───
+    _scoreLines(
+      board: board,
+      points: points,
+      linesMaxLength: linesMaxLength,
+      stock: stock,
+      onBoard: onBoard,
+      events: events,
+    );
+
+    // ─── 5) Stalemate counter ───
+    final hadEffect = events.any((e) => e is MoveEvent || e is SwapEvent || e is LineCompletedEvent);
     final isEmptyAction = action is FlipAction && !hadEffect;
     final newEmptyCount = isEmptyAction ? state.consecutiveEmptyActions + 1 : 0;
 
+    // ─── 6) Fim de jogo ───
+    final actionsTaken = state.actionsTaken + 1;
+    final other = owner.opponent;
     PieceOwner? winner;
     bool gameEnded = false;
 
-    if ((onBoard[other] ?? 0) == 0 && (stock[other] ?? 0) == 0) {
-      winner = owner;
+    // Vitória por pontos (15+)
+    final playerPts = points[PieceOwner.player] ?? 0;
+    final aiPts = points[PieceOwner.ai] ?? 0;
+    if (playerPts >= GameState.winningPoints && playerPts > aiPts) {
+      winner = PieceOwner.player;
       gameEnded = true;
-    } else if ((onBoard[owner] ?? 0) == 0 && (stock[owner] ?? 0) == 0) {
-      winner = other;
+    } else if (aiPts >= GameState.winningPoints && aiPts > playerPts) {
+      winner = PieceOwner.ai;
+      gameEnded = true;
+    } else if (playerPts >= GameState.winningPoints && aiPts >= GameState.winningPoints) {
+      // Ambos passaram do limiar no mesmo turno — desempata pelos pontos absolutos
+      winner = playerPts > aiPts ? PieceOwner.player : (aiPts > playerPts ? PieceOwner.ai : null);
       gameEnded = true;
     } else if (actionsTaken >= GameState.maxActions) {
       gameEnded = true;
-      winner = _decideTiedWinner(onBoard, destroyed);
+      winner = _decideWinnerByPoints(points, onBoard);
     } else if (newEmptyCount >= GameState.stalemateThreshold) {
-      // Stalemate por inércia: N ações consecutivas sem efeito
       gameEnded = true;
-      winner = _decideTiedWinner(onBoard, destroyed);
-    } else if (_isStalemate(board, stock)) {
-      // Stalemate "geométrico" (versão rápida): ambos estoque 0 e nenhuma peça com vizinho
-      gameEnded = true;
-      winner = _decideTiedWinner(onBoard, destroyed);
+      winner = _decideWinnerByPoints(points, onBoard);
     }
 
     if (gameEnded) events.add(EndEvent(winner));
@@ -304,7 +235,8 @@ class GameLogic {
       board: board,
       stock: stock,
       onBoard: onBoard,
-      destroyed: destroyed,
+      points: points,
+      linesMaxLength: linesMaxLength,
       consecutiveEmptyActions: newEmptyCount,
       actionsTaken: actionsTaken,
       currentPlayer: other,
@@ -314,197 +246,189 @@ class GameLogic {
     return ActionResult(newState: newState, events: events);
   }
 
-  /// Atração solo (sem par contrário): peça atravessa o epicentro e aterrissa
-  /// na posição simétrica (mesmo step, lado oposto). Destino calculado com
-  /// wrap toroidal. Se destino vazio → move (+1 charge). Se ocupado → atraída
-  /// destruída (consistente com regra ativa/passiva).
-  static int _attractAcross({
+  /// Calcula pontuação e reciclagem para todas as linhas do tabuleiro.
+  /// Modifica `points`, `linesMaxLength`, `stock`, `onBoard` e empilha
+  /// LineCompletedEvent em `events`.
+  static void _scoreLines({
     required List<List<Piece?>> board,
-    required int epicenterR,
-    required int epicenterC,
-    required _Neighbor neighbor,
-    required int fromDirIndex,
-    required int toDirIndex,
-    required PieceOwner owner,
+    required Map<PieceOwner, int> points,
+    required Map<int, Map<PieceOwner, int>> linesMaxLength,
+    required Map<PieceOwner, int> stock,
     required Map<PieceOwner, int> onBoard,
-    required Map<PieceOwner, int> destroyed,
     required List<AnimationEvent> events,
   }) {
-    events.add(ForceEvent(
-      from: Cell(epicenterR, epicenterC),
-      to: Cell(neighbor.row, neighbor.col),
-      kind: ForceKind.attract,
-    ));
-
-    final toDir = dirs[toDirIndex];
-    // Posição simétrica: epicentro + dirOposto × step (com wrap)
-    final tr = _wrapAxis(epicenterR + toDir[0] * neighbor.step);
-    final tc = _wrapAxis(epicenterC + toDir[1] * neighbor.step);
-
-    final attracted = board[neighbor.row][neighbor.col]!;
-    final destPiece = board[tr][tc];
-
-    if (destPiece == null) {
-      // Casa simétrica vazia → atravessa
-      board[neighbor.row][neighbor.col] = null;
-      final landed = attracted.bumpCharge();
-      board[tr][tc] = landed;
-      events.add(MoveEvent(
-        from: Cell(neighbor.row, neighbor.col),
-        to: Cell(tr, tc),
-        piece: landed,
-      ));
-      if (landed.charge > attracted.charge) {
-        events.add(ChargeEvent(
-          at: Cell(tr, tc),
-          newCharge: landed.charge,
-          becameCharged: landed.isCharged && !attracted.isCharged,
-        ));
-      }
-      return 0;
-    }
-
-    // Destino ocupado (caso raro, via wrap em board cheio) → atraída morre
-    board[neighbor.row][neighbor.col] = null;
-    onBoard[attracted.owner] = (onBoard[attracted.owner] ?? 0) - 1;
-    int killed = 0;
-    if (attracted.owner != owner) {
-      destroyed[owner] = (destroyed[owner] ?? 0) + 1;
-      killed = 1;
-    }
-    events.add(DestroyEvent(
-      from: Cell(neighbor.row, neighbor.col),
-      direction: toDir,
-      piece: attracted,
-    ));
-    return killed;
-  }
-
-  /// Aniquilação direta (par de opostos colide). Destrói a peça na posição
-  /// do vizinho. Conta destruição se o dono for diferente do epicentro.
-  static int _annihilate(
-    List<List<Piece?>> board,
-    Piece piece,
-    _Neighbor at,
-    PieceOwner ownerOfEpicenter,
-    Map<PieceOwner, int> onBoard,
-    Map<PieceOwner, int> destroyed,
-    List<AnimationEvent> events,
-  ) {
-    board[at.row][at.col] = null;
-    onBoard[piece.owner] = (onBoard[piece.owner] ?? 0) - 1;
-    int killed = 0;
-    if (piece.owner != ownerOfEpicenter) {
-      destroyed[ownerOfEpicenter] = (destroyed[ownerOfEpicenter] ?? 0) + 1;
-      killed = 1;
-    }
-    events.add(DestroyEvent(
-      from: Cell(at.row, at.col),
-      direction: const [0, 0],
-      piece: piece,
-    ));
-    return killed;
-  }
-
-  /// Repulsão single-hit com wrap toroidal. A peça repelida tenta mover 1
-  /// casa na direção (dr, dc). Destino é calculado COM wrap. Se destino é
-  /// vazio → move (+1 charge). Se ocupado → repelida destruída, destino
-  /// sobrevive. Sem cadeia.
-  /// Retorna quantas peças do oponente foram destruídas.
-  static int _repelSingle({
-    required List<List<Piece?>> board,
-    required _Neighbor neighbor,
-    required int dr,
-    required int dc,
-    required int epicenterR,
-    required int epicenterC,
-    required PieceOwner owner,
-    required Map<PieceOwner, int> onBoard,
-    required Map<PieceOwner, int> destroyed,
-    required List<AnimationEvent> events,
-  }) {
-    final tr = _wrapAxis(neighbor.row + dr);
-    final tc = _wrapAxis(neighbor.col + dc);
-
-    final repelled = board[neighbor.row][neighbor.col]!;
-
-    // Destino é o epicentro (caso wrap) ou outra peça → repelida destruída
-    final destPiece = board[tr][tc];
-    if (destPiece != null) {
-      board[neighbor.row][neighbor.col] = null;
-      onBoard[repelled.owner] = (onBoard[repelled.owner] ?? 0) - 1;
-      int killed = 0;
-      if (repelled.owner != owner) {
-        destroyed[owner] = (destroyed[owner] ?? 0) + 1;
-        killed = 1;
-      }
-      events.add(DestroyEvent(
-        from: Cell(neighbor.row, neighbor.col),
-        direction: [dr, dc],
-        piece: repelled,
-      ));
-      return killed;
-    }
-
-    // Destino vazio → move
-    board[neighbor.row][neighbor.col] = null;
-    final landed = repelled.bumpCharge();
-    board[tr][tc] = landed;
-    events.add(MoveEvent(
-      from: Cell(neighbor.row, neighbor.col),
-      to: Cell(tr, tc),
-      piece: landed,
-    ));
-    if (landed.charge > repelled.charge) {
-      events.add(ChargeEvent(
-        at: Cell(tr, tc),
-        newCharge: landed.charge,
-        becameCharged: landed.isCharged && !repelled.isCharged,
-      ));
-    }
-    return 0;
-  }
-
-  /// Stalemate: nenhuma peça tem vizinho a até chargedRange casas.
-  /// Pré-condição já checada pelo caller: ambos estoques = 0.
-  static bool _isStalemate(List<List<Piece?>> board, Map<PieceOwner, int> stock) {
-    if ((stock[PieceOwner.player] ?? 0) > 0) return false;
-    if ((stock[PieceOwner.ai] ?? 0) > 0) return false;
-
-    final n = GameState.boardSize;
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        if (board[r][c] == null) continue;
-        for (final dir in dirs) {
-          for (int step = 1; step <= chargedRange; step++) {
-            final nr = r + dir[0] * step;
-            final nc = c + dir[1] * step;
-            if (nr < 0 || nr >= n || nc < 0 || nc >= n) break;
-            if (board[nr][nc] != null) return false; // tem vizinho
-          }
+    // Fase 1: detecta e remove 5-em-linha (reciclagem). Pode haver múltiplas
+    // 5-em-linhas no mesmo turno (raro, mas possível).
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (int lineIdx = 0; lineIdx < GameState.totalLines; lineIdx++) {
+        final cells = _lineCells(lineIdx);
+        final pieces = cells.map((c) => board[c.row][c.col]).toList();
+        final run = _findLongestRun(pieces);
+        if (run.owner == null || run.length < 5) continue;
+        if (run.startIndex != 0 || run.length != 5) continue; // 5-em-linha = linha inteira
+        final owner = run.owner!;
+        final uniform = run.uniformPolarity;
+        final pts = uniform ? 10 : 5;
+        points[owner] = (points[owner] ?? 0) + pts;
+        // Remove peças, devolve estoque
+        for (final cell in cells) {
+          final p = board[cell.row][cell.col];
+          if (p == null) continue;
+          board[cell.row][cell.col] = null;
+          onBoard[p.owner] = (onBoard[p.owner] ?? 0) - 1;
+          stock[p.owner] = ((stock[p.owner] ?? 0) + 1).clamp(0, GameState.stockSize);
         }
+        // Reseta histórico desta linha
+        linesMaxLength[lineIdx]?[owner] = 0;
+        events.add(LineCompletedEvent(
+          cells: cells,
+          owner: owner,
+          length: 5,
+          uniformPolarity: uniform,
+          pointsEarned: pts,
+          recycled: true,
+        ));
+        changed = true;
+        break; // recomeça loop com board atualizado
       }
     }
-    return true;
+
+    // Fase 2: detecta runs 3 e 4 — pontua apenas se SUPERA o recorde da linha
+    for (int lineIdx = 0; lineIdx < GameState.totalLines; lineIdx++) {
+      final cells = _lineCells(lineIdx);
+      final pieces = cells.map((c) => board[c.row][c.col]).toList();
+      final run = _findLongestRun(pieces);
+      if (run.owner == null || run.length < 3 || run.length == 5) continue;
+      final owner = run.owner!;
+      final prevMax = linesMaxLength[lineIdx]?[owner] ?? 0;
+      if (run.length <= prevMax) continue;
+      // Pontua pelos NÍVEIS novos atingidos (cumulativo entre prevMax+1..run.length)
+      int gained = 0;
+      for (int level = prevMax + 1; level <= run.length; level++) {
+        gained += _pointsForLevel(level, run.uniformPolarity);
+      }
+      points[owner] = (points[owner] ?? 0) + gained;
+      linesMaxLength[lineIdx]?[owner] = run.length;
+      // Cells da run (subsequência) — não a linha inteira
+      final runCells = cells.sublist(run.startIndex, run.startIndex + run.length);
+      events.add(LineCompletedEvent(
+        cells: runCells,
+        owner: owner,
+        length: run.length,
+        uniformPolarity: run.uniformPolarity,
+        pointsEarned: gained,
+        recycled: false,
+      ));
+    }
   }
 
-  /// Decide vencedor numa situação de fim por contagem (max ações ou stalemate).
-  static PieceOwner? _decideTiedWinner(
+  static int _pointsForLevel(int level, bool uniform) {
+    switch (level) {
+      case 3:
+        return 1;
+      case 4:
+        return 3;
+      case 5:
+        return uniform ? 10 : 5;
+      default:
+        return 0;
+    }
+  }
+
+  /// Retorna as 5 células da linha [lineIdx]:
+  /// 0..4 → linhas horizontais (rows 0..4)
+  /// 5..9 → colunas (cols 0..4)
+  /// 10 → diagonal principal (0,0)..(4,4)
+  /// 11 → antidiagonal (0,4)..(4,0)
+  static List<Cell> _lineCells(int lineIdx) {
+    final n = GameState.boardSize;
+    if (lineIdx < 5) {
+      final row = lineIdx;
+      return [for (int c = 0; c < n; c++) Cell(row, c)];
+    } else if (lineIdx < 10) {
+      final col = lineIdx - 5;
+      return [for (int r = 0; r < n; r++) Cell(r, col)];
+    } else if (lineIdx == 10) {
+      return [for (int i = 0; i < n; i++) Cell(i, i)];
+    } else {
+      return [for (int i = 0; i < n; i++) Cell(i, n - 1 - i)];
+    }
+  }
+
+  /// Encontra a maior subsequência consecutiva do mesmo dono numa linha.
+  /// Retorna comprimento, dono, índice inicial e se a polaridade é uniforme.
+  static _RunResult _findLongestRun(List<Piece?> pieces) {
+    PieceOwner? bestOwner;
+    int bestLength = 0;
+    int bestStart = 0;
+    bool bestUniform = false;
+
+    PieceOwner? curOwner;
+    int curStart = 0;
+    int curLength = 0;
+    Polarity? curPolarity;
+    bool curUniform = true;
+
+    void flush() {
+      if (curLength > bestLength && curOwner != null) {
+        bestOwner = curOwner;
+        bestLength = curLength;
+        bestStart = curStart;
+        bestUniform = curUniform;
+      }
+    }
+
+    for (int i = 0; i < pieces.length; i++) {
+      final p = pieces[i];
+      if (p == null) {
+        flush();
+        curOwner = null;
+        curLength = 0;
+        curPolarity = null;
+        curUniform = true;
+        continue;
+      }
+      if (p.owner != curOwner) {
+        flush();
+        curOwner = p.owner;
+        curStart = i;
+        curLength = 1;
+        curPolarity = p.polarity;
+        curUniform = true;
+      } else {
+        curLength++;
+        if (curPolarity != null && p.polarity != curPolarity) curUniform = false;
+      }
+    }
+    flush();
+
+    return _RunResult(
+      owner: bestOwner,
+      length: bestLength,
+      startIndex: bestStart,
+      uniformPolarity: bestUniform,
+    );
+  }
+
+  /// Decide vencedor em fim por contagem (max ações ou stalemate).
+  static PieceOwner? _decideWinnerByPoints(
+    Map<PieceOwner, int> points,
     Map<PieceOwner, int> onBoard,
-    Map<PieceOwner, int> destroyed,
   ) {
-    final p = onBoard[PieceOwner.player] ?? 0;
-    final a = onBoard[PieceOwner.ai] ?? 0;
+    final p = points[PieceOwner.player] ?? 0;
+    final a = points[PieceOwner.ai] ?? 0;
     if (p > a) return PieceOwner.player;
     if (a > p) return PieceOwner.ai;
-    final dp = destroyed[PieceOwner.player] ?? 0;
-    final da = destroyed[PieceOwner.ai] ?? 0;
-    if (dp > da) return PieceOwner.player;
-    if (da > dp) return PieceOwner.ai;
+    final pB = onBoard[PieceOwner.player] ?? 0;
+    final aB = onBoard[PieceOwner.ai] ?? 0;
+    if (pB > aB) return PieceOwner.player;
+    if (aB > pB) return PieceOwner.ai;
     return null; // empate técnico
   }
 
-  /// Ações legais para o jogador da vez.
+  /// Lista todas as ações legais para o jogador da vez.
   static List<GameAction> legalActions(GameState state) {
     final actions = <GameAction>[];
     final owner = state.currentPlayer;
@@ -539,9 +463,15 @@ class ActionResult {
   const ActionResult({required this.newState, required this.events});
 }
 
-class _Neighbor {
-  final int row;
-  final int col;
-  final int step;
-  const _Neighbor({required this.row, required this.col, required this.step});
+class _RunResult {
+  final PieceOwner? owner;
+  final int length;
+  final int startIndex;
+  final bool uniformPolarity;
+  const _RunResult({
+    required this.owner,
+    required this.length,
+    required this.startIndex,
+    required this.uniformPolarity,
+  });
 }

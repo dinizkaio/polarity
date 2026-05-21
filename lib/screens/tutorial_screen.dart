@@ -42,17 +42,17 @@ class _TutorialScreenState extends State<TutorialScreen> {
         _StepData(
           title: l10n.tutorialStep3Title,
           body: l10n.tutorialStep3Body,
-          illustration: _repulsionIllustration,
+          illustration: _swapIllustration,
         ),
         _StepData(
           title: l10n.tutorialStep4Title,
           body: l10n.tutorialStep4Body,
-          illustration: _chargeIllustration,
+          illustration: _repulsionIllustration,
         ),
         _StepData(
           title: l10n.tutorialStep5Title,
           body: l10n.tutorialStep5Body,
-          illustration: _resonanceIllustration,
+          illustration: _scoringIllustration,
         ),
         _StepData(
           title: l10n.tutorialStep6Title,
@@ -205,6 +205,54 @@ class _TutorialScreenState extends State<TutorialScreen> {
         rightColor: AppColors.haloPlus,
         kind: _PairKind.repel,
       );
+  Widget _swapIllustration() => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _IllustrationDot(symbol: '⊕', color: AppColors.haloPlus),
+          const SizedBox(width: 12),
+          Text('⇄', style: AppTypography.displayXl(color: AppColors.ink2)),
+          const SizedBox(width: 12),
+          _IllustrationDot(symbol: '⊕', color: AppColors.haloPlus),
+        ],
+      );
+
+  Widget _scoringIllustration() => Container(
+        width: 200,
+        height: 56,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppColors.haloPlus.withValues(alpha: 0.5), width: 1.5),
+          boxShadow: [
+            BoxShadow(color: AppColors.haloPlus.withValues(alpha: 0.3), blurRadius: 16),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(
+            5,
+            (_) => Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  colors: [Color(0xFFFFFEF5), Color(0xFFFFEBC2), Color(0xFFE8C988)],
+                ),
+                boxShadow: [
+                  BoxShadow(color: AppColors.haloPlus.withValues(alpha: 0.6), blurRadius: 8),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  '⊕',
+                  style: AppTypography.pieceSymbol(color: AppColors.playerSymbol, size: 14),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
   Widget _chargeIllustration() => Stack(
         alignment: Alignment.center,
         children: [

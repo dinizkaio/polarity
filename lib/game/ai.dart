@@ -13,25 +13,17 @@ enum AiDifficulty {
   const AiDifficulty({required this.depth});
 }
 
-/// IA com minimax + poda alpha-beta. Sem dependência de UI.
-///
-/// Avaliação considera:
-/// - peças no tabuleiro (próprias × oponente)
-/// - estoque
-/// - destruições acumuladas (importante pra desempate)
-/// - peças em borda (vulneráveis)
-/// - peças carregadas (alta ameaça, alcance 2)
-/// - controle do centro
+/// IA com minimax + poda alpha-beta. Heurística da v6 prioriza:
+/// - pontuação já marcada (peso máximo)
+/// - peças em formações potenciais (runs 2, 3, 4)
+/// - peças no tabuleiro / estoque
 class AiEngine {
   final Random _rng;
   AiEngine([int? seed]) : _rng = Random(seed);
 
-  /// Escolhe a melhor ação para o jogador da vez (assume currentPlayer == AI).
-  /// Retorna null se não houver ação válida (não deveria ocorrer em jogo válido).
   GameAction? pickAction(GameState state, AiDifficulty difficulty) {
     final actions = GameLogic.legalActions(state);
     if (actions.isEmpty) return null;
-
     actions.shuffle(_rng);
 
     final maximizing = state.currentPlayer;
@@ -69,7 +61,6 @@ class AiEngine {
     if (depth <= 0 || state.isGameOver) {
       return _evaluate(state, maximizingOwner);
     }
-
     final actions = GameLogic.legalActions(state);
     if (actions.isEmpty) return _evaluate(state, maximizingOwner);
 
@@ -120,62 +111,107 @@ class AiEngine {
     final them = me.opponent;
 
     if (state.winner != null) {
-      return state.winner == me ? 1000.0 : -1000.0;
+      return state.winner == me ? 10000.0 : -10000.0;
     }
     if (state.isGameOver && state.winner == null) {
-      // Empate técnico
       return 0.0;
     }
 
-    final myOnBoard = state.onBoard[me] ?? 0;
-    final theirOnBoard = state.onBoard[them] ?? 0;
-    final myStock = state.stock[me] ?? 0;
-    final theirStock = state.stock[them] ?? 0;
-    final myDestroyed = state.destroyed[me] ?? 0;
-    final theirDestroyed = state.destroyed[them] ?? 0;
-
     double score = 0.0;
-    // Peças no tabuleiro pesam mais; oponente vale 1.5x (pressão)
-    score += myOnBoard * 10.0;
-    score -= theirOnBoard * 15.0;
-    score += myStock * 2.0;
-    score -= theirStock * 2.0;
 
-    // Destruições acumuladas (importante pro desempate justo)
-    score += myDestroyed * 3.0;
-    score -= theirDestroyed * 3.0;
+    // Pontuação já marcada — peso dominante
+    final myPts = state.points[me] ?? 0;
+    final theirPts = state.points[them] ?? 0;
+    score += myPts * 20.0;
+    score -= theirPts * 22.0;
 
-    final boardSize = GameState.boardSize;
-    final mid = boardSize ~/ 2;
-    for (int r = 0; r < boardSize; r++) {
-      for (int c = 0; c < boardSize; c++) {
-        final p = state.board[r][c];
-        if (p == null) continue;
+    // Material no tabuleiro e estoque
+    score += (state.onBoard[me] ?? 0) * 3.0;
+    score -= (state.onBoard[them] ?? 0) * 3.0;
+    score += (state.stock[me] ?? 0) * 1.0;
+    score -= (state.stock[them] ?? 0) * 1.0;
 
-        // Com tabuleiro toroidal, bordas não são mais vulneráveis. Posição
-        // mid tem leve vantagem só pela quantidade de pares opostos
-        // possíveis (mais rotas de colisão de atração).
-        final isCenter = r == mid && c == mid;
-
-        double cellScore = 0.0;
-        if (isCenter) cellScore += 1.0;
-
-        // Peça carregada é uma ameaça grande (alcance 2)
-        if (p.isCharged) {
-          cellScore += 5.0;
-        } else if (p.charge > 0) {
-          // Charge intermediário: alguma vantagem latente
-          cellScore += 0.6 * p.charge;
-        }
-
-        if (p.owner == me) {
-          score += cellScore;
-        } else {
-          score -= cellScore;
-        }
+    // Formações potenciais (runs 2, 3, 4) em cada linha
+    for (int lineIdx = 0; lineIdx < GameState.totalLines; lineIdx++) {
+      final cells = _lineCells(lineIdx);
+      final pieces = cells.map((c) => state.board[c.row][c.col]).toList();
+      final run = _findLongestRunInLine(pieces);
+      if (run.owner == null || run.length < 2) continue;
+      final lineScore = _runPotential(run.length);
+      if (run.owner == me) {
+        score += lineScore;
+      } else {
+        score -= lineScore;
       }
     }
 
     return score;
   }
+
+  static double _runPotential(int length) {
+    switch (length) {
+      case 2:
+        return 1.0;
+      case 3:
+        return 4.0;
+      case 4:
+        return 10.0;
+      default:
+        return 0.0;
+    }
+  }
+
+  static List<Cell> _lineCells(int lineIdx) {
+    final n = GameState.boardSize;
+    if (lineIdx < 5) {
+      final row = lineIdx;
+      return [for (int c = 0; c < n; c++) Cell(row, c)];
+    } else if (lineIdx < 10) {
+      final col = lineIdx - 5;
+      return [for (int r = 0; r < n; r++) Cell(r, col)];
+    } else if (lineIdx == 10) {
+      return [for (int i = 0; i < n; i++) Cell(i, i)];
+    } else {
+      return [for (int i = 0; i < n; i++) Cell(i, n - 1 - i)];
+    }
+  }
+
+  static _RunMin _findLongestRunInLine(List<Piece?> pieces) {
+    PieceOwner? bestOwner;
+    int bestLen = 0;
+    PieceOwner? curOwner;
+    int curLen = 0;
+    for (final p in pieces) {
+      if (p == null) {
+        if (curLen > bestLen) {
+          bestLen = curLen;
+          bestOwner = curOwner;
+        }
+        curOwner = null;
+        curLen = 0;
+        continue;
+      }
+      if (p.owner != curOwner) {
+        if (curLen > bestLen) {
+          bestLen = curLen;
+          bestOwner = curOwner;
+        }
+        curOwner = p.owner;
+        curLen = 1;
+      } else {
+        curLen++;
+      }
+    }
+    if (curLen > bestLen) {
+      bestLen = curLen;
+      bestOwner = curOwner;
+    }
+    return _RunMin(owner: bestOwner, length: bestLen);
+  }
+}
+
+class _RunMin {
+  final PieceOwner? owner;
+  final int length;
+  const _RunMin({required this.owner, required this.length});
 }

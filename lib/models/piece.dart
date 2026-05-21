@@ -16,38 +16,22 @@ enum Polarity {
 }
 
 /// Uma peça no tabuleiro. Imutável.
-///
-/// `charge` (0..maxCharge) acumula sempre que a peça sobrevive a uma força
-/// (atração, repulsão ou bloqueio). Quando atinge maxCharge, a peça vira
-/// **carregada**. Carregadas têm alcance 2 quando são EPICENTRO (a onda
-/// magnética alcança peças a 2 casas, não só vizinhos imediatos). Após
-/// disparar como epicentro, o charge zera.
 class Piece {
-  static const int maxCharge = 3;
-
   final int id;
   final PieceOwner owner;
   final Polarity polarity;
-  final int charge;
 
   const Piece({
     required this.id,
     required this.owner,
     required this.polarity,
-    this.charge = 0,
   });
 
-  bool get isCharged => charge >= maxCharge;
-
-  Piece copyWith({Polarity? polarity, int? charge}) => Piece(
+  Piece copyWith({Polarity? polarity}) => Piece(
     id: id,
     owner: owner,
     polarity: polarity ?? this.polarity,
-    charge: charge ?? this.charge,
   );
-
-  Piece bumpCharge() => copyWith(charge: (charge + 1).clamp(0, maxCharge));
-  Piece resetCharge() => copyWith(charge: 0);
 
   @override
   bool operator ==(Object other) =>
@@ -55,15 +39,13 @@ class Piece {
       (other is Piece &&
           other.id == id &&
           other.owner == owner &&
-          other.polarity == polarity &&
-          other.charge == charge);
+          other.polarity == polarity);
 
   @override
-  int get hashCode => Object.hash(id, owner, polarity, charge);
+  int get hashCode => Object.hash(id, owner, polarity);
 
   @override
-  String toString() =>
-      'Piece(id:$id, owner:$owner, polarity:$polarity, charge:$charge)';
+  String toString() => 'Piece(id:$id, owner:$owner, polarity:$polarity)';
 }
 
 /// Coordenada no tabuleiro [row, col].

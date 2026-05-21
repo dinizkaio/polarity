@@ -29,13 +29,11 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
 
   bool _animating = false;
   Cell? _epicenter;
-  bool _epicenterCharged = false;
-  Cell? _shakingCell;
   ForceEvent? _currentForce;
-  Cell? _chargeFlashCell;
-  ResonanceEvent? _activeResonance;
-  final Map<int, _Explosion> _explosions = {};
-  int _explosionIdCounter = 0;
+  LineCompletedEvent? _activeLine;
+  final Map<int, _LineFlash> _lineFlashes = {};
+  final Map<int, _Recycle> _recycles = {};
+  int _effectIdCounter = 0;
 
   @override
   void initState() {
@@ -48,6 +46,12 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
   @override
   void dispose() {
     context.read<GameProvider>().removeListener(_onProviderChanged);
+    for (final f in _lineFlashes.values) {
+      f.controller.dispose();
+    }
+    for (final r in _recycles.values) {
+      r.controller.dispose();
+    }
     super.dispose();
   }
 
@@ -68,7 +72,6 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
       for (int c = 0; c < GameState.boardSize; c++) {
         if (a[r][c]?.id != b[r][c]?.id) return false;
         if (a[r][c]?.polarity != b[r][c]?.polarity) return false;
-        if (a[r][c]?.charge != b[r][c]?.charge) return false;
       }
     }
     return true;
@@ -89,15 +92,11 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
 
     if (!mounted) return;
     _epicenter = null;
-    _epicenterCharged = false;
     _currentForce = null;
-    _shakingCell = null;
-    _chargeFlashCell = null;
+    _activeLine = null;
     _animating = false;
     setState(() {});
-    if (mounted) {
-      context.read<GameProvider>().onAnimationComplete();
-    }
+    if (mounted) context.read<GameProvider>().onAnimationComplete();
   }
 
   Future<void> _animateEvent(AnimationEvent event, double mult, SettingsProvider settings) async {
@@ -112,11 +111,8 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
         setState(() => _displayBoard[at.row][at.col] = piece);
         await _wait((450 * mult).round());
 
-      case EpicenterEvent(:final at, :final isCharged):
-        setState(() {
-          _epicenter = at;
-          _epicenterCharged = isCharged;
-        });
+      case EpicenterEvent(:final at):
+        setState(() => _epicenter = at);
         await _wait((150 * mult).round());
 
       case ForceEvent():
@@ -131,41 +127,36 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
         });
         await _wait((300 * mult).round());
 
-      case ShakeEvent(:final at):
-        HapticsHelper.selection(settings);
-        setState(() => _shakingCell = at);
-        await _wait((200 * mult).round());
-        setState(() => _shakingCell = null);
+      case SwapEvent(:final cellA, :final cellB, :final pieceA, :final pieceB):
+        HapticsHelper.medium(settings);
+        setState(() {
+          _displayBoard[cellA.row][cellA.col] = pieceB;
+          _displayBoard[cellB.row][cellB.col] = pieceA;
+        });
+        await _wait((350 * mult).round());
 
-      case DestroyEvent(:final from, :final piece):
+      case LineCompletedEvent():
         HapticsHelper.heavy(settings);
-        _spawnExplosion(from, _pieceColor(piece));
-        setState(() => _displayBoard[from.row][from.col] = null);
-        await _wait((500 * mult).round());
-
-      case ChargeEvent(:final at, :final newCharge):
-        // Atualiza o charge na peça mostrada (caso o move já tenha sido aplicado
-        // antes desse evento, a peça pode já estar aqui ou ter sido removida)
-        final p = _displayBoard[at.row][at.col];
-        if (p != null) {
+        _spawnLineFlash(event);
+        if (event.recycled) {
+          for (final cell in event.cells) {
+            final p = _displayBoard[cell.row][cell.col];
+            if (p != null) _spawnRecycle(cell, _haloColor(p));
+          }
           setState(() {
-            _displayBoard[at.row][at.col] = p.copyWith(charge: newCharge);
-            _chargeFlashCell = at;
+            for (final cell in event.cells) {
+              _displayBoard[cell.row][cell.col] = null;
+            }
           });
-          await _wait((220 * mult).round());
-          setState(() => _chargeFlashCell = null);
         }
-
-      case ResonanceEvent():
-        HapticsHelper.heavy(settings);
-        setState(() => _activeResonance = event);
-        await _wait((650 * mult).round());
-        setState(() => _activeResonance = null);
+        setState(() => _activeLine = event);
+        await _wait((event.recycled ? 800 : 500) * mult ~/ 1);
+        setState(() => _activeLine = null);
 
       case EndEvent():
         await _wait((600 * mult).round());
     }
-    if (event is ForceEvent || event is MoveEvent || event is ShakeEvent) {
+    if (event is ForceEvent || event is MoveEvent || event is SwapEvent) {
       await _wait((60 * mult).round());
     }
   }
@@ -174,24 +165,47 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
     await Future.delayed(Duration(milliseconds: ms));
   }
 
-  /// Cor pra animação de explosão — usa o halo da polaridade pra coerência.
-  Color _pieceColor(Piece p) =>
+  Color _haloColor(Piece p) =>
       p.polarity == Polarity.plus ? AppColors.haloPlus : AppColors.haloMinus;
 
-  void _spawnExplosion(Cell at, Color color) {
-    final id = ++_explosionIdCounter;
+  void _spawnLineFlash(LineCompletedEvent event) {
+    final id = ++_effectIdCounter;
     final controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 650),
+      duration: Duration(milliseconds: event.recycled ? 800 : 500),
     );
-    final exp = _Explosion(id: id, cell: at, color: color, controller: controller);
-    setState(() => _explosions[id] = exp);
+    final flash = _LineFlash(
+      id: id,
+      cells: event.cells,
+      color: event.uniformPolarity ? AppColors.haloPlus : AppColors.ink,
+      controller: controller,
+      recycled: event.recycled,
+    );
+    setState(() => _lineFlashes[id] = flash);
     controller.forward().whenComplete(() {
       if (!mounted) {
         controller.dispose();
         return;
       }
-      setState(() => _explosions.remove(id));
+      setState(() => _lineFlashes.remove(id));
+      controller.dispose();
+    });
+  }
+
+  void _spawnRecycle(Cell at, Color color) {
+    final id = ++_effectIdCounter;
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+    final r = _Recycle(id: id, cell: at, color: color, controller: controller);
+    setState(() => _recycles[id] = r);
+    controller.forward().whenComplete(() {
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      setState(() => _recycles.remove(id));
       controller.dispose();
     });
   }
@@ -226,9 +240,6 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
                   spreadRadius: -4,
                 ),
               ],
-              border: _epicenterCharged
-                  ? Border.all(color: AppColors.haloPlus.withValues(alpha: 0.45), width: 1.5)
-                  : null,
             ),
             child: GridView.builder(
               physics: const NeverScrollableScrollPhysics(),
@@ -245,7 +256,6 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
               },
             ),
           ),
-          // Camada de linha de força (CustomPaint)
           if (_currentForce != null)
             Positioned.fill(
               child: IgnorePointer(
@@ -259,18 +269,18 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
                 ),
               ),
             ),
-          // Camada de explosões — uma instância de _ExplosionWidget por destruição
-          ..._explosions.values.map(
-            (exp) => Positioned.fill(
-              key: ValueKey(exp.id),
+          // Linhas completas: flash dourado/branco sobre as células
+          ..._lineFlashes.values.map(
+            (f) => Positioned.fill(
+              key: ValueKey('lf_${f.id}'),
               child: IgnorePointer(
                 child: AnimatedBuilder(
-                  animation: exp.controller,
+                  animation: f.controller,
                   builder: (_, __) => CustomPaint(
-                    painter: _ExplosionPainter(
-                      cell: exp.cell,
-                      color: exp.color,
-                      progress: exp.controller.value,
+                    painter: _LineFlashPainter(
+                      cells: f.cells,
+                      color: f.color,
+                      progress: f.controller.value,
                       cellSize: cellSize,
                       gap: gap,
                       padding: padding,
@@ -280,37 +290,54 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
               ),
             ),
           ),
-          // Toast de ressonância
-          if (_activeResonance != null)
+          // Reciclagem: peças subindo até desaparecer
+          ..._recycles.values.map(
+            (r) => Positioned.fill(
+              key: ValueKey('rc_${r.id}'),
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: r.controller,
+                  builder: (_, __) => CustomPaint(
+                    painter: _RecyclePainter(
+                      cell: r.cell,
+                      color: r.color,
+                      progress: r.controller.value,
+                      cellSize: cellSize,
+                      gap: gap,
+                      padding: padding,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Toast de pontuação
+          if (_activeLine != null)
             Positioned(
               top: 12,
               left: 12,
               right: 12,
               child: IgnorePointer(
                 child: Center(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: 1.0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xCCFFC15B), Color(0xCCFFEBC2)],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: _activeLine!.uniformPolarity
+                            ? [const Color(0xCCFFC15B), const Color(0xCCFFEBC2)]
+                            : [const Color(0xCCC4B8FF), const Color(0xCCF5F2FF)],
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.haloPlus.withValues(alpha: 0.5),
+                          blurRadius: 18,
                         ),
-                        borderRadius: BorderRadius.circular(999),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.haloPlus.withValues(alpha: 0.6),
-                            blurRadius: 20,
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        _activeResonance!.bonus > 0
-                            ? l10n.resonanceBonusToast(_activeResonance!.bonus)
-                            : l10n.gameResonance,
-                        style: AppTypography.uiButton(color: AppColors.bgVoid).copyWith(fontSize: 13),
-                      ),
+                      ],
+                    ),
+                    child: Text(
+                      l10n.lineToast(_activeLine!.length, _activeLine!.pointsEarned),
+                      style: AppTypography.uiButton(color: AppColors.bgVoid).copyWith(fontSize: 13),
                     ),
                   ),
                 ),
@@ -328,8 +355,6 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
         game.selectedEmptyCell?.row == row &&
         game.selectedEmptyCell?.col == col;
     final isEpicenter = _epicenter?.row == row && _epicenter?.col == col;
-    final isShaking = _shakingCell?.row == row && _shakingCell?.col == col;
-    final isChargeFlash = _chargeFlashCell?.row == row && _chargeFlashCell?.col == col;
 
     Color cellBg = Colors.white.withValues(alpha: 0.025);
     BoxBorder? border;
@@ -356,24 +381,15 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
           child: piece == null
               ? const SizedBox.shrink()
               : AnimatedScale(
-                  scale: isEpicenter ? (_epicenterCharged ? 1.24 : 1.18) : (isSelected ? 1.08 : 1.0),
+                  scale: isEpicenter ? 1.18 : (isSelected ? 1.08 : 1.0),
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
-                  child: AnimatedSlide(
-                    offset: isShaking ? const Offset(0.05, 0) : Offset.zero,
-                    duration: const Duration(milliseconds: 80),
-                    child: AnimatedScale(
-                      scale: isChargeFlash ? 1.12 : 1.0,
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutBack,
-                      child: PieceWidget(
-                        piece: piece,
-                        size: cellSize,
-                        colorblindMode: settings.colorblind,
-                        selected: isSelected,
-                        epicenter: isEpicenter,
-                      ),
-                    ),
+                  child: PieceWidget(
+                    piece: piece,
+                    size: cellSize,
+                    colorblindMode: settings.colorblind,
+                    selected: isSelected,
+                    epicenter: isEpicenter,
                   ),
                 ),
         ),
@@ -410,18 +426,13 @@ class _ForceLinePainter extends CustomPainter {
 
     final paint = Paint()
       ..shader = LinearGradient(
-        colors: [
-          color.withValues(alpha: 0.0),
-          color.withValues(alpha: 0.95),
-        ],
+        colors: [color.withValues(alpha: 0.0), color.withValues(alpha: 0.95)],
       ).createShader(Rect.fromPoints(from, to))
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
 
     canvas.drawLine(from, to, paint);
-
-    // Pequeno glow no destino
     canvas.drawCircle(
       to,
       cellSize * 0.18,
@@ -438,12 +449,70 @@ class _ForceLinePainter extends CustomPainter {
       old.force.kind != force.kind;
 }
 
-class _Explosion {
+class _LineFlash {
+  final int id;
+  final List<Cell> cells;
+  final Color color;
+  final AnimationController controller;
+  final bool recycled;
+  const _LineFlash({
+    required this.id,
+    required this.cells,
+    required this.color,
+    required this.controller,
+    required this.recycled,
+  });
+}
+
+/// Pinta um glow contínuo sobre as células da run. Para 5-em-linha
+/// (recycled), o glow é mais forte e dura mais.
+class _LineFlashPainter extends CustomPainter {
+  final List<Cell> cells;
+  final Color color;
+  final double progress;
+  final double cellSize;
+  final double gap;
+  final double padding;
+
+  const _LineFlashPainter({
+    required this.cells,
+    required this.color,
+    required this.progress,
+    required this.cellSize,
+    required this.gap,
+    required this.padding,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Pulse: começa intenso, suaviza
+    final intensity = (1.0 - progress).clamp(0.0, 1.0);
+    for (final cell in cells) {
+      final cx = padding + cell.col * (cellSize + gap) + cellSize / 2;
+      final cy = padding + cell.row * (cellSize + gap) + cellSize / 2;
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cx, cy), width: cellSize, height: cellSize),
+        const Radius.circular(12),
+      );
+      canvas.drawRRect(
+        rect,
+        Paint()
+          ..color = color.withValues(alpha: 0.55 * intensity)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LineFlashPainter old) => old.progress != progress;
+}
+
+class _Recycle {
   final int id;
   final Cell cell;
   final Color color;
   final AnimationController controller;
-  const _Explosion({
+  const _Recycle({
     required this.id,
     required this.cell,
     required this.color,
@@ -451,9 +520,8 @@ class _Explosion {
   });
 }
 
-/// Renderiza ~10 partículas saindo do centro da peça destruída, com fade out
-/// e leve gravidade (queda). Progress 0→1 ao longo de 650ms.
-class _ExplosionPainter extends CustomPainter {
+/// Anima a peça "subindo" até desaparecer — representa o retorno ao estoque.
+class _RecyclePainter extends CustomPainter {
   final Cell cell;
   final Color color;
   final double progress;
@@ -461,9 +529,7 @@ class _ExplosionPainter extends CustomPainter {
   final double gap;
   final double padding;
 
-  static const int _particleCount = 10;
-
-  const _ExplosionPainter({
+  const _RecyclePainter({
     required this.cell,
     required this.color,
     required this.progress,
@@ -476,54 +542,36 @@ class _ExplosionPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cx = padding + cell.col * (cellSize + gap) + cellSize / 2;
     final cy = padding + cell.row * (cellSize + gap) + cellSize / 2;
-    final maxRadius = cellSize * 0.95;
+    final rise = cellSize * 0.6 * progress;
+    final alpha = (1.0 - progress).clamp(0.0, 1.0);
 
-    // Shockwave anel central — expande e some
-    final ringR = maxRadius * progress;
-    final ringAlpha = (1.0 - progress).clamp(0.0, 1.0);
+    // Aro luminoso ascendente
     canvas.drawCircle(
-      Offset(cx, cy),
-      ringR,
+      Offset(cx, cy - rise),
+      cellSize * 0.35 * (1 + progress * 0.3),
       Paint()
-        ..color = color.withValues(alpha: 0.55 * ringAlpha)
+        ..color = color.withValues(alpha: 0.6 * alpha)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0 + 1.5 * (1 - progress)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+        ..strokeWidth = 2.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
     );
 
-    // Flash branco central
-    final flashAlpha = (1.0 - progress * 2.5).clamp(0.0, 1.0);
-    if (flashAlpha > 0) {
-      canvas.drawCircle(
-        Offset(cx, cy),
-        cellSize * 0.32 * (1 + progress * 0.4),
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.7 * flashAlpha)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-      );
-    }
-
-    // Partículas
-    for (int i = 0; i < _particleCount; i++) {
-      final angle = (i / _particleCount) * 2 * 3.14159265;
-      final dist = maxRadius * (0.35 + progress * 0.95);
-      final gravity = (cellSize * 0.18) * (progress * progress);
-      final px = cx + dist * math.cos(angle);
-      final py = cy + dist * math.sin(angle) + gravity;
-      final pAlpha = (1.0 - progress * 1.2).clamp(0.0, 1.0);
-      final pSize = (cellSize * 0.08) * (1.0 - progress * 0.6).clamp(0.2, 1.0);
-
+    // Pequenas partículas subindo
+    for (int i = 0; i < 4; i++) {
+      final angle = (i / 4) * 2 * math.pi;
+      final radius = cellSize * 0.15;
+      final px = cx + radius * math.cos(angle);
+      final py = cy - rise + radius * math.sin(angle);
       canvas.drawCircle(
         Offset(px, py),
-        pSize,
+        cellSize * 0.04 * alpha,
         Paint()
-          ..color = color.withValues(alpha: pAlpha)
+          ..color = color.withValues(alpha: 0.8 * alpha)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
       );
     }
   }
 
   @override
-  bool shouldRepaint(_ExplosionPainter old) =>
-      old.progress != progress || old.cell != cell;
+  bool shouldRepaint(_RecyclePainter old) => old.progress != progress;
 }
