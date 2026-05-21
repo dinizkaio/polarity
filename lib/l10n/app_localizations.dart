@@ -68,6 +68,9 @@ class AppLocalizations {
   String get difficultyLookahead1 => _get('difficultyLookahead1');
   String get difficultyLookahead3 => _get('difficultyLookahead3');
   String get difficultyLookahead5 => _get('difficultyLookahead5');
+  String get difficultyTurnsLabel => _get('difficultyTurnsLabel');
+  String difficultyTurnsFixed(int n) => _format('difficultyTurnsFixed', {'n': n});
+  String difficultyTurnsChosen(int n) => _format('difficultyTurnsChosen', {'n': n});
 
   String gameTurnLabel(int current, int total) =>
       _format('gameTurnLabel', {'current': current, 'total': total});

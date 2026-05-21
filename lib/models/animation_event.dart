@@ -81,3 +81,10 @@ class EndEvent extends AnimationEvent {
   final PieceOwner? winner;
   const EndEvent(this.winner);
 }
+
+/// Peça destruída — usado quando 5-em-linha tira uma peça do oponente.
+class DestroyEvent extends AnimationEvent {
+  final Cell from;
+  final Piece piece;
+  const DestroyEvent({required this.from, required this.piece});
+}

@@ -18,6 +18,9 @@ const Map<String, String> enStrings = {
   'difficultyLookahead1': '1 MOVE AHEAD',
   'difficultyLookahead3': '3 MOVES AHEAD',
   'difficultyLookahead5': '5 MOVES AHEAD',
+  'difficultyTurnsLabel': 'TURNS PER MATCH (ADEPT/MASTER)',
+  'difficultyTurnsFixed': 'Always {n} turns',
+  'difficultyTurnsChosen': '{n} turns',
 
   'gameTurnLabel': 'TURN {current}/{total}',
   'gameYourTurn': 'Your turn',
@@ -116,9 +119,9 @@ const Map<String, String> enStrings = {
   'tutorialStep4Title': 'Repulsion',
   'tutorialStep4Body': 'Like polarities repel. The piece is pushed 1 cell away from the epicenter (wraps at edges). If the destination cell is occupied, it stays put — no chain, no destruction.',
   'tutorialStep5Title': 'Scoring',
-  'tutorialStep5Body': 'Form rows, columns or diagonals with your pieces:\n• 3 in a row = +1 point\n• 4 in a row = +3 points\n• 5 in a row = +5 (mixed) or +10 (same polarity)\nWhen you complete 5 in a row, those pieces return to your stock — you can build again.',
+  'tutorialStep5Body': 'Form rows, columns or diagonals with your pieces:\n• 3 in a row = +1 point\n• 4 in a row = +3 points\n• 5 in a row = +5 (mixed) or +10 (same polarity)\n\nEach turn, all your ACTIVE formations score again — keeping a line alive scores repeatedly. When you complete 5 in a row, you steal 1 random piece from the opponent.',
   'tutorialStep6Title': 'Winning',
-  'tutorialStep6Body': 'First to 15 points wins. Or, if 20 turns run out first, the one with more points wins. Who starts is decided by gravity (50/50 random).',
+  'tutorialStep6Body': 'First to 15 points wins. Or, if turns run out first, the one with more points wins. Apprentice plays 20-turn matches; on Adept and Master you can choose 30, 40 or 50 turns. Who starts is decided 50/50.',
 
   'howToPlayTitle': 'How to play',
 };

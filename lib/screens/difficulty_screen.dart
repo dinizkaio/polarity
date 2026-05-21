@@ -7,8 +7,15 @@ import '../theme/app_typography.dart';
 import '../widgets/cosmic_backdrop.dart';
 import 'game_screen.dart';
 
-class DifficultyScreen extends StatelessWidget {
+class DifficultyScreen extends StatefulWidget {
   const DifficultyScreen({super.key});
+
+  @override
+  State<DifficultyScreen> createState() => _DifficultyScreenState();
+}
+
+class _DifficultyScreenState extends State<DifficultyScreen> {
+  int _selectedTurns = 30; // padrão pra Adepto/Mestre
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +29,7 @@ class DifficultyScreen extends StatelessWidget {
         lookahead: l10n.difficultyLookahead1,
         glyph: '◔',
         hue: 200,
+        fixedTurns: 20, // Aprendiz sempre 20 turnos
       ),
       _LevelData(
         difficulty: AiDifficulty.adept,
@@ -30,6 +38,7 @@ class DifficultyScreen extends StatelessWidget {
         lookahead: l10n.difficultyLookahead3,
         glyph: '◑',
         hue: 280,
+        fixedTurns: null,
       ),
       _LevelData(
         difficulty: AiDifficulty.master,
@@ -38,6 +47,7 @@ class DifficultyScreen extends StatelessWidget {
         lookahead: l10n.difficultyLookahead5,
         glyph: '●',
         hue: 340,
+        fixedTurns: null,
       ),
     ];
 
@@ -59,15 +69,29 @@ class DifficultyScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(l10n.difficultyTitle, style: AppTypography.h1()),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                // Seletor de turnos (afeta Adepto/Mestre)
+                _TurnsSelector(
+                  selected: _selectedTurns,
+                  onChanged: (v) => setState(() => _selectedTurns = v),
+                  label: l10n.difficultyTurnsLabel,
+                ),
+                const SizedBox(height: 16),
                 ...levels.map((l) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _LevelCard(
                         data: l,
+                        turnsLabel: l.fixedTurns != null
+                            ? l10n.difficultyTurnsFixed(l.fixedTurns!)
+                            : l10n.difficultyTurnsChosen(_selectedTurns),
                         onTap: () {
+                          final turns = l.fixedTurns ?? _selectedTurns;
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
-                              builder: (_) => GameScreen(difficulty: l.difficulty),
+                              builder: (_) => GameScreen(
+                                difficulty: l.difficulty,
+                                maxTurns: turns,
+                              ),
                             ),
                           );
                         },
@@ -88,7 +112,8 @@ class _LevelData {
   final String desc;
   final String lookahead;
   final String glyph;
-  final int hue; // não usado diretamente; doc no design
+  final int hue;
+  final int? fixedTurns;
   const _LevelData({
     required this.difficulty,
     required this.name,
@@ -96,13 +121,80 @@ class _LevelData {
     required this.lookahead,
     required this.glyph,
     required this.hue,
+    required this.fixedTurns,
   });
+}
+
+class _TurnsSelector extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onChanged;
+  final String label;
+  const _TurnsSelector({
+    required this.selected,
+    required this.onChanged,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final options = [30, 40, 50];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTypography.eyebrow()),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            children: options.map((n) {
+              final isSelected = n == selected;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => onChanged(n),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: isSelected
+                          ? LinearGradient(
+                              colors: [
+                                AppColors.haloPlus.withValues(alpha: 0.6),
+                                AppColors.haloPlus.withValues(alpha: 0.3),
+                              ],
+                            )
+                          : null,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$n',
+                        style: AppTypography.uiButton(
+                          color: isSelected ? AppColors.bgVoid : AppColors.ink2,
+                        ).copyWith(fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _LevelCard extends StatelessWidget {
   final _LevelData data;
+  final String turnsLabel;
   final VoidCallback onTap;
-  const _LevelCard({required this.data, required this.onTap});
+  const _LevelCard({
+    required this.data,
+    required this.turnsLabel,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +245,8 @@ class _LevelCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(data.desc, style: AppTypography.body(size: 13)),
+                  const SizedBox(height: 4),
+                  Text(turnsLabel, style: AppTypography.monoSmall(color: AppColors.ink2, size: 11)),
                 ],
               ),
             ),
@@ -163,7 +257,6 @@ class _LevelCard extends StatelessWidget {
   }
 
   Color _hueColor(int hue) {
-    // Aproximação de oklch(0.6 0.18 hue): converte HSL com saturação fixa
     return HSLColor.fromAHSL(1.0, hue.toDouble(), 0.6, 0.55).toColor();
   }
 }

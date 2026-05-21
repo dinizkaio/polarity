@@ -18,6 +18,9 @@ const Map<String, String> esStrings = {
   'difficultyLookahead1': '1 JUGADA ADELANTE',
   'difficultyLookahead3': '3 JUGADAS ADELANTE',
   'difficultyLookahead5': '5 JUGADAS ADELANTE',
+  'difficultyTurnsLabel': 'TURNOS POR PARTIDA (ADEPTO/MAESTRO)',
+  'difficultyTurnsFixed': 'Siempre {n} turnos',
+  'difficultyTurnsChosen': '{n} turnos',
 
   'gameTurnLabel': 'TURNO {current}/{total}',
   'gameYourTurn': 'Tu turno',
@@ -116,9 +119,9 @@ const Map<String, String> esStrings = {
   'tutorialStep4Title': 'Repulsión',
   'tutorialStep4Body': 'Polaridades iguales se repelen. La pieza se empuja 1 casilla lejos del epicentro (con wrap en los bordes). Si la casilla destino está ocupada, se queda quieta — sin cadena, sin destrucción.',
   'tutorialStep5Title': 'Puntuación',
-  'tutorialStep5Body': 'Forma filas, columnas o diagonales con tus piezas:\n• 3 en línea = +1 punto\n• 4 en línea = +3 puntos\n• 5 en línea = +5 (mixtas) o +10 (misma polaridad)\nCuando completas 5 en línea, esas piezas vuelven a tu reserva — puedes construir de nuevo.',
+  'tutorialStep5Body': 'Forma filas, columnas o diagonales con tus piezas:\n• 3 en línea = +1 punto\n• 4 en línea = +3 puntos\n• 5 en línea = +5 (mixtas) o +10 (misma polaridad)\n\nCada turno, todas tus formaciones ACTIVAS puntúan de nuevo — mantener la línea viva da puntos repetidos. Cuando completas 5 en línea, te quitas 1 pieza aleatoria del oponente del tablero.',
   'tutorialStep6Title': 'Ganar',
-  'tutorialStep6Body': 'El primero en llegar a 15 puntos gana. Si se agotan los 20 turnos antes, gana quien tiene más puntos. Quién comienza lo decide la gravedad (sorteo 50/50).',
+  'tutorialStep6Body': 'El primero en llegar a 15 puntos gana. Si se agotan los turnos antes, gana quien tiene más puntos. El Aprendiz juega partidas de 20 turnos; en Adepto y Maestro puedes elegir 30, 40 o 50 turnos. Quién comienza se sortea 50/50.',
 
   'howToPlayTitle': 'Cómo jugar',
 };

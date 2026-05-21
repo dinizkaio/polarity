@@ -18,12 +18,13 @@ import '../widgets/player_tray.dart';
 
 class GameScreen extends StatelessWidget {
   final AiDifficulty difficulty;
-  const GameScreen({super.key, required this.difficulty});
+  final int maxTurns;
+  const GameScreen({super.key, required this.difficulty, this.maxTurns = 20});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => GameProvider(difficulty: difficulty),
+      create: (_) => GameProvider(difficulty: difficulty, maxTurns: maxTurns),
       child: const _GameScreenBody(),
     );
   }
@@ -88,6 +89,7 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
                         name: l10n.gameAi,
                         stockCount: game.state.stock[PieceOwner.ai] ?? 0,
                         onBoardCount: game.state.onBoard[PieceOwner.ai] ?? 0,
+                        points: game.state.points[PieceOwner.ai] ?? 0,
                         isCurrent: game.state.currentPlayer == PieceOwner.ai,
                         isThinking: game.phase == GamePhase.aiThinking,
                       ),
@@ -109,6 +111,7 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
                         name: l10n.gamePlayer,
                         stockCount: game.state.stock[PieceOwner.player] ?? 0,
                         onBoardCount: game.state.onBoard[PieceOwner.player] ?? 0,
+                        points: game.state.points[PieceOwner.player] ?? 0,
                         isCurrent: game.state.currentPlayer == PieceOwner.player &&
                             game.phase != GamePhase.aiThinking,
                       ),
