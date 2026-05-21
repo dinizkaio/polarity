@@ -19,12 +19,22 @@ import '../widgets/player_tray.dart';
 class GameScreen extends StatelessWidget {
   final AiDifficulty difficulty;
   final int maxTurns;
-  const GameScreen({super.key, required this.difficulty, this.maxTurns = 20});
+  final bool localMultiplayer;
+  const GameScreen({
+    super.key,
+    required this.difficulty,
+    this.maxTurns = 20,
+    this.localMultiplayer = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => GameProvider(difficulty: difficulty, maxTurns: maxTurns),
+      create: (_) => GameProvider(
+        difficulty: difficulty,
+        maxTurns: maxTurns,
+        localMultiplayer: localMultiplayer,
+      ),
       child: const _GameScreenBody(),
     );
   }
@@ -50,12 +60,21 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
     // Feedback háptico em fim de partida
     if (game.phase == GamePhase.ended && !_endShown) {
       _endShown = true;
-      if (game.state.winner == PieceOwner.player) {
+      // No modo local, sempre dispara vitória (alguém ganhou).
+      // No modo vs IA, só se o player venceu.
+      final shouldCelebrate = game.localMultiplayer
+          ? game.state.winner != null
+          : game.state.winner == PieceOwner.player;
+      if (shouldCelebrate) {
         HapticsHelper.victoryPattern(settings);
       } else {
         HapticsHelper.medium(settings);
       }
     }
+
+    // Nomes dos jogadores conforme o modo
+    final p1Name = game.localMultiplayer ? l10n.gamePlayer1 : l10n.gamePlayer;
+    final p2Name = game.localMultiplayer ? l10n.gamePlayer2 : l10n.gameAi;
 
     return PopScope(
       canPop: false,
@@ -86,12 +105,13 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: PlayerTray(
                         owner: PieceOwner.ai,
-                        name: l10n.gameAi,
+                        name: p2Name,
                         stockCount: game.state.stock[PieceOwner.ai] ?? 0,
                         onBoardCount: game.state.onBoard[PieceOwner.ai] ?? 0,
                         points: game.state.points[PieceOwner.ai] ?? 0,
                         isCurrent: game.state.currentPlayer == PieceOwner.ai,
-                        isThinking: game.phase == GamePhase.aiThinking,
+                        isThinking: !game.localMultiplayer &&
+                            game.phase == GamePhase.aiThinking,
                       ),
                     ),
                     const Spacer(),
@@ -108,7 +128,7 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: PlayerTray(
                         owner: PieceOwner.player,
-                        name: l10n.gamePlayer,
+                        name: p1Name,
                         stockCount: game.state.stock[PieceOwner.player] ?? 0,
                         onBoardCount: game.state.onBoard[PieceOwner.player] ?? 0,
                         points: game.state.points[PieceOwner.player] ?? 0,
@@ -139,6 +159,7 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
                     playerPoints: game.state.points[PieceOwner.player] ?? 0,
                     aiPoints: game.state.points[PieceOwner.ai] ?? 0,
                     totalTurns: game.state.displayTurn,
+                    localMultiplayer: game.localMultiplayer,
                     onNewGame: () async {
                       // Mostra intersticial (no-op se anúncios removidos ou frequência não atingida)
                       await context.read<AdsService>().maybeShowInterstitialAfterMatch();

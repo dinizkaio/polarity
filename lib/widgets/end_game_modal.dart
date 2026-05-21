@@ -13,6 +13,7 @@ class EndGameModal extends StatelessWidget {
   final int playerPoints;
   final int aiPoints;
   final int totalTurns;
+  final bool localMultiplayer;
   final VoidCallback onNewGame;
   final VoidCallback onMenu;
   final VoidCallback? onShare;
@@ -23,6 +24,7 @@ class EndGameModal extends StatelessWidget {
     required this.playerPoints,
     required this.aiPoints,
     required this.totalTurns,
+    this.localMultiplayer = false,
     required this.onNewGame,
     required this.onMenu,
     this.onShare,
@@ -31,25 +33,44 @@ class EndGameModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isVictory = winner == PieceOwner.player;
-    final isDefeat = winner == PieceOwner.ai;
 
     String title;
     String tagline;
     Color titleColor;
-    if (isVictory) {
-      title = l10n.endVictory;
-      tagline = l10n.endVictoryTagline;
-      titleColor = AppColors.haloPlus;
-    } else if (isDefeat) {
-      title = l10n.endDefeat;
-      tagline = l10n.endDefeatTagline;
-      titleColor = AppColors.critical;
+
+    if (localMultiplayer) {
+      // No modo local, mostra "Jogador X venceu" em vez de "Vitória/Derrota"
+      if (winner == PieceOwner.player) {
+        title = l10n.endPlayer1Wins;
+        tagline = l10n.endVictoryTagline;
+        titleColor = AppColors.haloPlus;
+      } else if (winner == PieceOwner.ai) {
+        title = l10n.endPlayer2Wins;
+        tagline = l10n.endVictoryTagline;
+        titleColor = AppColors.haloMinus;
+      } else {
+        title = l10n.endDraw;
+        tagline = l10n.endDrawTagline;
+        titleColor = AppColors.ink;
+      }
     } else {
-      title = l10n.endDraw;
-      tagline = l10n.endDrawTagline;
-      titleColor = AppColors.ink;
+      if (winner == PieceOwner.player) {
+        title = l10n.endVictory;
+        tagline = l10n.endVictoryTagline;
+        titleColor = AppColors.haloPlus;
+      } else if (winner == PieceOwner.ai) {
+        title = l10n.endDefeat;
+        tagline = l10n.endDefeatTagline;
+        titleColor = AppColors.critical;
+      } else {
+        title = l10n.endDraw;
+        tagline = l10n.endDrawTagline;
+        titleColor = AppColors.ink;
+      }
     }
+
+    final p1Label = localMultiplayer ? l10n.gamePlayer1Short : l10n.endStatYou;
+    final p2Label = localMultiplayer ? l10n.gamePlayer2Short : l10n.endStatAi;
 
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
@@ -96,9 +117,9 @@ class EndGameModal extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _StatBox(label: l10n.endStatYou, value: playerPoints.toString()),
+                      _StatBox(label: p1Label, value: playerPoints.toString()),
                       _StatBox(label: l10n.endStatTurns, value: totalTurns.toString()),
-                      _StatBox(label: l10n.endStatAi, value: aiPoints.toString()),
+                      _StatBox(label: p2Label, value: aiPoints.toString()),
                     ],
                   ),
                   const SizedBox(height: 8),

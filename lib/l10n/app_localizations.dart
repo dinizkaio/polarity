@@ -80,6 +80,16 @@ class AppLocalizations {
   String get gameMagneticReaction => _get('gameMagneticReaction');
   String get gamePlayer => _get('gamePlayer');
   String get gameAi => _get('gameAi');
+  String get gamePlayer1 => _get('gamePlayer1');
+  String get gamePlayer2 => _get('gamePlayer2');
+  String get gamePlayer1Short => _get('gamePlayer1Short');
+  String get gamePlayer2Short => _get('gamePlayer2Short');
+  String get endPlayer1Wins => _get('endPlayer1Wins');
+  String get endPlayer2Wins => _get('endPlayer2Wins');
+  String get menuPlayLocal => _get('menuPlayLocal');
+  String get localSetupTitle => _get('localSetupTitle');
+  String get localSetupBody => _get('localSetupBody');
+  String get localSetupStart => _get('localSetupStart');
   String gameOnBoard(int n) => _format('gameOnBoard', {'n': n});
   String get gameStockLabel => _get('gameStockLabel');
   String get gameActionPlace => _get('gameActionPlace');
