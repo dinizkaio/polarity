@@ -7,21 +7,26 @@ class GameState {
   static const int boardSize = 5;
   static const int stockSize = 10;
   static const int maxActions = 40; // 20 turnos × 2 jogadores
+  static const int stalemateThreshold = 4;
+  static const int winningPoints = 15;
+  static const int totalLines = 12; // 5 rows + 5 cols + 2 diagonals
 
   /// board[row][col] — nullable. row 0 é topo.
   final List<List<Piece?>> board;
   final Map<PieceOwner, int> stock;
   final Map<PieceOwner, int> onBoard;
 
-  /// Peças do oponente destruídas por cada jogador (acumulado da partida).
-  /// Critério de desempate justo: quem destruiu mais peças do outro vence.
-  final Map<PieceOwner, int> destroyed;
+  /// Pontuação acumulada da partida.
+  final Map<PieceOwner, int> points;
 
-  /// Contador de ações consecutivas que não produziram movimento ou destruição
-  /// (i.e. peça colocada longe sem reação, ou flip de peça isolada). Quando
-  /// atinge [stalemateThreshold], partida termina por stalemate.
+  /// Histórico: máximo comprimento alcançado em cada linha (0..11) por cada
+  /// dono. Pontuação 3/4/5 só ganha quando a linha SUPERA seu próprio recorde.
+  /// Resetada pra zero quando uma linha completa 5 (reciclagem) — permite
+  /// pontuar de novo na próxima reconstrução.
+  final Map<int, Map<PieceOwner, int>> linesMaxLength;
+
+  /// Contador de ações consecutivas sem efeito (flip que não causou Move).
   final int consecutiveEmptyActions;
-  static const int stalemateThreshold = 4;
 
   final int actionsTaken;
   final PieceOwner currentPlayer;
@@ -31,7 +36,8 @@ class GameState {
     required this.board,
     required this.stock,
     required this.onBoard,
-    required this.destroyed,
+    required this.points,
+    required this.linesMaxLength,
     required this.consecutiveEmptyActions,
     required this.actionsTaken,
     required this.currentPlayer,
@@ -47,7 +53,11 @@ class GameState {
       board: List.generate(boardSize, (_) => List<Piece?>.filled(boardSize, null, growable: false)),
       stock: {PieceOwner.player: stockSize, PieceOwner.ai: stockSize},
       onBoard: {PieceOwner.player: 0, PieceOwner.ai: 0},
-      destroyed: {PieceOwner.player: 0, PieceOwner.ai: 0},
+      points: {PieceOwner.player: 0, PieceOwner.ai: 0},
+      linesMaxLength: {
+        for (int i = 0; i < totalLines; i++)
+          i: {PieceOwner.player: 0, PieceOwner.ai: 0}
+      },
       consecutiveEmptyActions: 0,
       actionsTaken: 0,
       currentPlayer: firstPlayer,
@@ -59,7 +69,8 @@ class GameState {
     List<List<Piece?>>? board,
     Map<PieceOwner, int>? stock,
     Map<PieceOwner, int>? onBoard,
-    Map<PieceOwner, int>? destroyed,
+    Map<PieceOwner, int>? points,
+    Map<int, Map<PieceOwner, int>>? linesMaxLength,
     int? consecutiveEmptyActions,
     int? actionsTaken,
     PieceOwner? currentPlayer,
@@ -69,7 +80,8 @@ class GameState {
       board: board ?? this.board,
       stock: stock ?? this.stock,
       onBoard: onBoard ?? this.onBoard,
-      destroyed: destroyed ?? this.destroyed,
+      points: points ?? this.points,
+      linesMaxLength: linesMaxLength ?? this.linesMaxLength,
       consecutiveEmptyActions: consecutiveEmptyActions ?? this.consecutiveEmptyActions,
       actionsTaken: actionsTaken ?? this.actionsTaken,
       currentPlayer: currentPlayer ?? this.currentPlayer,
@@ -80,6 +92,14 @@ class GameState {
   /// Clona o tabuleiro pra mutações controladas dentro do motor.
   List<List<Piece?>> cloneBoard() =>
       board.map((row) => List<Piece?>.from(row)).toList(growable: false);
+
+  /// Clone profundo do linesMaxLength.
+  Map<int, Map<PieceOwner, int>> cloneLinesMaxLength() {
+    return {
+      for (final entry in linesMaxLength.entries)
+        entry.key: Map<PieceOwner, int>.from(entry.value)
+    };
+  }
 
   /// Turno atual exibido na UI (1..maxActions/2). Cada turno = 1 ação do jogador + 1 da IA.
   int get displayTurn => (actionsTaken ~/ 2) + 1;

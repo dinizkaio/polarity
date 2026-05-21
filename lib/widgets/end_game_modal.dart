@@ -10,10 +10,8 @@ import 'primary_button.dart';
 
 class EndGameModal extends StatelessWidget {
   final PieceOwner? winner;
-  final int playerPieces;
-  final int aiPieces;
-  final int playerDestroyed;
-  final int aiDestroyed;
+  final int playerPoints;
+  final int aiPoints;
   final int totalTurns;
   final VoidCallback onNewGame;
   final VoidCallback onMenu;
@@ -22,11 +20,9 @@ class EndGameModal extends StatelessWidget {
   const EndGameModal({
     super.key,
     required this.winner,
-    required this.playerPieces,
-    required this.aiPieces,
+    required this.playerPoints,
+    required this.aiPoints,
     required this.totalTurns,
-    this.playerDestroyed = 0,
-    this.aiDestroyed = 0,
     required this.onNewGame,
     required this.onMenu,
     this.onShare,
@@ -100,23 +96,13 @@ class EndGameModal extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _StatBox(label: l10n.endStatYou, value: playerPieces.toString()),
+                      _StatBox(label: l10n.endStatYou, value: playerPoints.toString()),
                       _StatBox(label: l10n.endStatTurns, value: totalTurns.toString()),
-                      _StatBox(label: l10n.endStatAi, value: aiPieces.toString()),
+                      _StatBox(label: l10n.endStatAi, value: aiPoints.toString()),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(l10n.endStatDestroyed, style: AppTypography.eyebrow()),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$playerDestroyed × $aiDestroyed',
-                        style: AppTypography.monoSmall(color: AppColors.ink2, size: 13),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 8),
+                  Text(l10n.endStatPoints, style: AppTypography.eyebrow()),
                   const SizedBox(height: 24),
                   PrimaryButton(label: l10n.endNewGame, onPressed: onNewGame),
                   const SizedBox(height: 8),
@@ -126,7 +112,7 @@ class EndGameModal extends StatelessWidget {
                     TextButton(
                       onPressed: () {
                         Clipboard.setData(ClipboardData(
-                          text: l10n.shareText(playerPieces, aiPieces),
+                          text: l10n.shareText(playerPoints, aiPoints),
                         ));
                         onShare!();
                       },

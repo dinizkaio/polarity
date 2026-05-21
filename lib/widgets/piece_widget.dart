@@ -4,12 +4,11 @@ import '../models/piece.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
-/// Renderização da peça. Camadas:
+/// Renderização da peça. 4 camadas:
 /// 1. Halo (cor da polaridade, blur)
 /// 2. Corpo (cor do dono, gradient radial)
 /// 3. Highlight especular
-/// 4. Indicador de carga (3 pontinhos na base ou aura especial se carregada)
-/// 5. Símbolo (⊕ ou ⊖)
+/// 4. Símbolo (⊕ ou ⊖)
 ///
 /// IMPORTANTE: anel duplo interno na peça da IA é vetor de acessibilidade.
 class PieceWidget extends StatelessWidget {
@@ -46,7 +45,7 @@ class PieceWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pieceSize = size * 0.78;
-    final haloSize = pieceSize * (piece.isCharged ? 1.4 : 1.22);
+    final haloSize = pieceSize * 1.22;
 
     return SizedBox(
       width: size,
@@ -54,7 +53,6 @@ class PieceWidget extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 1. Halo (mais intenso se carregada)
           IgnorePointer(
             child: Container(
               width: haloSize,
@@ -63,7 +61,7 @@ class PieceWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _haloColor.withValues(alpha: piece.isCharged ? 1.0 : 0.8),
+                    _haloColor.withValues(alpha: 0.8),
                     _haloColor.withValues(alpha: 0.0),
                   ],
                   stops: const [0.0, 0.6],
@@ -71,7 +69,6 @@ class PieceWidget extends StatelessWidget {
               ),
             ),
           ),
-          // 2. Corpo
           Container(
             width: pieceSize,
             height: pieceSize,
@@ -84,12 +81,6 @@ class PieceWidget extends StatelessWidget {
                   blurRadius: 12,
                   offset: Offset(0, 4),
                 ),
-                if (piece.isCharged)
-                  BoxShadow(
-                    color: _haloColor.withValues(alpha: 0.9),
-                    blurRadius: 22,
-                    spreadRadius: -2,
-                  ),
                 if (piece.owner == PieceOwner.player)
                   const BoxShadow(
                     color: Color(0x4D78501E),
@@ -99,13 +90,9 @@ class PieceWidget extends StatelessWidget {
                     blurStyle: BlurStyle.inner,
                   ),
               ],
-              border: piece.isCharged
-                  ? Border.all(color: _haloColor.withValues(alpha: 0.9), width: 1.5)
-                  : null,
             ),
             child: piece.owner == PieceOwner.ai ? _aiInnerRing(pieceSize) : null,
           ),
-          // 3. Highlight especular
           IgnorePointer(
             child: Container(
               width: pieceSize,
@@ -123,7 +110,6 @@ class PieceWidget extends StatelessWidget {
               ),
             ),
           ),
-          // 4. Símbolo
           Text(
             piece.polarity.symbol,
             style: AppTypography.pieceSymbol(
@@ -131,15 +117,6 @@ class PieceWidget extends StatelessWidget {
               size: pieceSize * 0.45,
             ),
           ),
-          // 5. Carga: pontinhos na base
-          if (piece.charge > 0)
-            Positioned(
-              bottom: (size - pieceSize) / 2 + pieceSize * 0.05,
-              child: _ChargeDots(
-                charge: piece.charge,
-                color: _haloColor,
-              ),
-            ),
         ],
       ),
     );
@@ -166,36 +143,6 @@ class PieceWidget extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _ChargeDots extends StatelessWidget {
-  final int charge;
-  final Color color;
-  const _ChargeDots({required this.charge, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(Piece.maxCharge, (i) {
-        final filled = i < charge;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0.8),
-          child: Container(
-            width: 3.5,
-            height: 3.5,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: filled ? color : color.withValues(alpha: 0.2),
-              boxShadow: filled
-                  ? [BoxShadow(color: color.withValues(alpha: 0.8), blurRadius: 3)]
-                  : null,
-            ),
-          ),
-        );
-      }),
     );
   }
 }

@@ -133,10 +133,8 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
                 if (game.phase == GamePhase.ended)
                   EndGameModal(
                     winner: game.state.winner,
-                    playerPieces: game.state.onBoard[PieceOwner.player] ?? 0,
-                    aiPieces: game.state.onBoard[PieceOwner.ai] ?? 0,
-                    playerDestroyed: game.state.destroyed[PieceOwner.player] ?? 0,
-                    aiDestroyed: game.state.destroyed[PieceOwner.ai] ?? 0,
+                    playerPoints: game.state.points[PieceOwner.player] ?? 0,
+                    aiPoints: game.state.points[PieceOwner.ai] ?? 0,
                     totalTurns: game.state.displayTurn,
                     onNewGame: () async {
                       // Mostra intersticial (no-op se anúncios removidos ou frequência não atingida)

@@ -93,6 +93,9 @@ class AppLocalizations {
   String get gameResonance => _get('gameResonance');
   String resonanceBonusToast(int n) => _format('resonanceBonusToast', {'n': n});
   String get gameCrossoverHint => _get('gameCrossoverHint');
+  String lineToast(int length, int points) =>
+      _format('lineToast', {'length': length, 'points': points});
+  String get gameScoreLabel => _get('gameScoreLabel');
 
   String get endGameLabel => _get('endGameLabel');
   String get endVictory => _get('endVictory');
@@ -105,6 +108,7 @@ class AppLocalizations {
   String get endStatTurns => _get('endStatTurns');
   String get endStatAi => _get('endStatAi');
   String get endStatDestroyed => _get('endStatDestroyed');
+  String get endStatPoints => _get('endStatPoints');
   String get endNewGame => _get('endNewGame');
   String get endMenu => _get('endMenu');
   String get endShareResult => _get('endShareResult');

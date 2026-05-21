@@ -20,8 +20,7 @@ class FlipEvent extends AnimationEvent {
 
 class EpicenterEvent extends AnimationEvent {
   final Cell at;
-  final bool isCharged;
-  const EpicenterEvent(this.at, {this.isCharged = false});
+  const EpicenterEvent(this.at);
 }
 
 enum ForceKind { attract, repel }
@@ -37,49 +36,44 @@ class MoveEvent extends AnimationEvent {
   final Cell from;
   final Cell to;
   final Piece piece;
-  final int chainIndex; // 0 = primeira da cadeia (mais perto do epicentro)
   const MoveEvent({
     required this.from,
     required this.to,
     required this.piece,
-    this.chainIndex = 0,
   });
 }
 
-class ShakeEvent extends AnimationEvent {
-  final Cell at;
-  const ShakeEvent(this.at);
-}
-
-class DestroyEvent extends AnimationEvent {
-  final Cell from;
-  final List<int> direction; // [dr, dc] — pra UI animar saindo nessa direção
-  final Piece piece;
-  const DestroyEvent({required this.from, required this.direction, required this.piece});
-}
-
-/// Disparado quando o charge da peça muda (cresce ou zera).
-class ChargeEvent extends AnimationEvent {
-  final Cell at;
-  final int newCharge;
-  final bool becameCharged;
-  const ChargeEvent({
-    required this.at,
-    required this.newCharge,
-    this.becameCharged = false,
+/// Par de peças opostas trocando de posição (atração em par).
+class SwapEvent extends AnimationEvent {
+  final Cell cellA;
+  final Cell cellB;
+  final Piece pieceA;
+  final Piece pieceB;
+  const SwapEvent({
+    required this.cellA,
+    required this.cellB,
+    required this.pieceA,
+    required this.pieceB,
   });
 }
 
-/// Cadeia destruiu 2+ peças do oponente em uma única onda → ressonância.
-/// O dono do epicentro ganha [bonus] peças de volta no estoque (até stockSize).
-class ResonanceEvent extends AnimationEvent {
+/// Linha (5) ou subsequência (3/4) completada por um jogador. Carrega
+/// pontuação ganha. Se length == 5, peças são removidas (reciclagem).
+class LineCompletedEvent extends AnimationEvent {
+  final List<Cell> cells;
   final PieceOwner owner;
-  final int destroyedCount;
-  final int bonus;
-  const ResonanceEvent({
+  final int length; // 3, 4 ou 5
+  final bool uniformPolarity;
+  final int pointsEarned;
+  final bool recycled; // true se length == 5 (peças removidas + estoque)
+
+  const LineCompletedEvent({
+    required this.cells,
     required this.owner,
-    required this.destroyedCount,
-    required this.bonus,
+    required this.length,
+    required this.uniformPolarity,
+    required this.pointsEarned,
+    required this.recycled,
   });
 }
 
