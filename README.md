@@ -4,9 +4,13 @@
 
 5×5, single-player vs IA (3 níveis), 1–3 min por partida. Flutter / Dart, com i18n PT/EN/ES.
 
-## v0.6.0 — diferenças em relação ao briefing original
+## v0.7.0 — diferenças em relação ao briefing original
 
-**Novidade da 0.6.0**: modo **multijogador local 1×1** — duas pessoas jogando no mesmo celular (pass-and-play). Sem IA, alternância simples de turnos. Acessível pelo botão "Jogar 1×1" no menu.
+**Novidades da 0.7.0**:
+- **Peças neutras (○)**: cada jogador pode ter até 2 simultâneas. Imunes a atração/repulsão, servem como barreira. Place oferece 3 polaridades (⊕/⊖/○); flip permite alternar entre as três.
+- **Fim de jogo forçado**: quando ambos os jogadores esgotam o estoque, partida acaba imediatamente, independente de turnos.
+
+**Da 0.6.0**: modo **multijogador local 1×1** (pass-and-play). Acessível pelo botão "Jogar 1×1" no menu.
 
 **Jogo é sobre construção de padrões.** Peças não são aniquiladas em colisões — apenas reposicionadas. Vence quem forma mais linhas/colunas/diagonais.
 

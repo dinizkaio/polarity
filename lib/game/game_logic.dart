@@ -70,6 +70,24 @@ class GameLogic {
     return ((v % n) + n) % n;
   }
 
+  /// Conta peças neutras de [owner] no tabuleiro.
+  static int _countNeutralsFor(List<List<Piece?>> board, PieceOwner owner) {
+    int count = 0;
+    for (int r = 0; r < GameState.boardSize; r++) {
+      for (int c = 0; c < GameState.boardSize; c++) {
+        final p = board[r][c];
+        if (p != null && p.owner == owner && p.polarity == Polarity.neutral) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  /// Helper público pra UI saber quantas neutras o jogador tem no tabuleiro.
+  static int countNeutralsFor(GameState state, PieceOwner owner) =>
+      _countNeutralsFor(state.board, owner);
+
   static ActionResult? applyAction(GameState state, GameAction action,
       {Random? rng}) {
     if (state.isGameOver) return null;
@@ -89,6 +107,10 @@ class GameLogic {
       case PlaceAction(:final row, :final col, :final polarity):
         if (board[row][col] != null) return null;
         if ((stock[owner] ?? 0) <= 0) return null;
+        // Limite de 2 peças neutras simultâneas por jogador no tabuleiro
+        if (polarity == Polarity.neutral && _countNeutralsFor(board, owner) >= 2) {
+          return null;
+        }
         piece = Piece(id: _nextId(), owner: owner, polarity: polarity);
         board[row][col] = piece;
         stock[owner] = (stock[owner] ?? 0) - 1;
@@ -97,10 +119,17 @@ class GameLogic {
         ec = col;
         events.add(PlaceEvent(at: Cell(row, col), piece: piece));
 
-      case FlipAction(:final row, :final col):
+      case FlipAction(:final row, :final col, :final targetPolarity):
         final existing = board[row][col];
         if (existing == null || existing.owner != owner) return null;
-        piece = existing.copyWith(polarity: existing.polarity.opposite);
+        if (existing.polarity == targetPolarity) return null;
+        // Virar neutra exige vaga (a peça atual não conta pois está mudando)
+        if (targetPolarity == Polarity.neutral) {
+          final cur = _countNeutralsFor(board, owner);
+          // Ela própria já é contada se for neutra; aqui não é (existing != neutral)
+          if (cur >= 2) return null;
+        }
+        piece = existing.copyWith(polarity: targetPolarity);
         board[row][col] = piece;
         er = row;
         ec = col;
@@ -124,38 +153,46 @@ class GameLogic {
 
     final processed = <int>{};
 
-    // ─── 1) Atração em par (swap) — processada primeiro, regardless dono ───
-    for (final pair in oppositePairs) {
-      final iA = pair[0];
-      final iB = pair[1];
-      final cA = neighborByDir[iA];
-      final cB = neighborByDir[iB];
-      if (cA == null || cB == null) continue;
-      final pA = board[cA.row][cA.col]!;
-      final pB = board[cB.row][cB.col]!;
-      if (pA.polarity == piece.polarity || pB.polarity == piece.polarity) continue;
-      events.add(ForceEvent(from: Cell(er, ec), to: cA, kind: ForceKind.attract));
-      events.add(ForceEvent(from: Cell(er, ec), to: cB, kind: ForceKind.attract));
-      board[cA.row][cA.col] = pB;
-      board[cB.row][cB.col] = pA;
-      events.add(SwapEvent(cellA: cA, cellB: cB, pieceA: pA, pieceB: pB));
-      processed.add(iA);
-      processed.add(iB);
+    // Se o epicentro é uma peça neutra, ela não gera onda
+    final epicenterIsNeutral = piece.polarity == Polarity.neutral;
+
+    // ─── 1) Atração em par (swap) — exige ambos opostos NÃO-NEUTROS ───
+    if (!epicenterIsNeutral) {
+      for (final pair in oppositePairs) {
+        final iA = pair[0];
+        final iB = pair[1];
+        final cA = neighborByDir[iA];
+        final cB = neighborByDir[iB];
+        if (cA == null || cB == null) continue;
+        final pA = board[cA.row][cA.col]!;
+        final pB = board[cB.row][cB.col]!;
+        // Neutras nunca participam de par
+        if (pA.polarity == Polarity.neutral || pB.polarity == Polarity.neutral) continue;
+        if (pA.polarity == piece.polarity || pB.polarity == piece.polarity) continue;
+        events.add(ForceEvent(from: Cell(er, ec), to: cA, kind: ForceKind.attract));
+        events.add(ForceEvent(from: Cell(er, ec), to: cB, kind: ForceKind.attract));
+        board[cA.row][cA.col] = pB;
+        board[cB.row][cB.col] = pA;
+        events.add(SwapEvent(cellA: cA, cellB: cB, pieceA: pA, pieceB: pB));
+        processed.add(iA);
+        processed.add(iB);
+      }
     }
 
-    // ─── 2) Solos do MESMO DONO primeiro (prioridade) ───
-    _processSolos(
-      board: board, neighborByDir: neighborByDir, processed: processed,
-      epicenter: Cell(er, ec), epicenterPolarity: piece.polarity,
-      onlyOwner: owner, events: events,
-    );
-
-    // ─── 3) Solos do OPONENTE ───
-    _processSolos(
-      board: board, neighborByDir: neighborByDir, processed: processed,
-      epicenter: Cell(er, ec), epicenterPolarity: piece.polarity,
-      onlyOwner: owner.opponent, events: events,
-    );
+    // ─── 2/3) Solos: mesmo dono primeiro, depois oponente ───
+    // Epicentro neutra não gera força nenhuma (apenas marca presença).
+    if (!epicenterIsNeutral) {
+      _processSolos(
+        board: board, neighborByDir: neighborByDir, processed: processed,
+        epicenter: Cell(er, ec), epicenterPolarity: piece.polarity,
+        onlyOwner: owner, events: events,
+      );
+      _processSolos(
+        board: board, neighborByDir: neighborByDir, processed: processed,
+        epicenter: Cell(er, ec), epicenterPolarity: piece.polarity,
+        onlyOwner: owner.opponent, events: events,
+      );
+    }
 
     // ─── 4) Detecta linhas com 5-em-linha (delta vs estado anterior) ───
     final newLinesWithFive = <int, PieceOwner>{};
@@ -213,6 +250,9 @@ class GameLogic {
 
     final playerPts = points[PieceOwner.player] ?? 0;
     final aiPts = points[PieceOwner.ai] ?? 0;
+    final bothStocksZero = (stock[PieceOwner.player] ?? 0) == 0 &&
+        (stock[PieceOwner.ai] ?? 0) == 0;
+
     if (playerPts >= GameState.winningPoints && playerPts > aiPts) {
       winner = PieceOwner.player;
       gameEnded = true;
@@ -222,6 +262,10 @@ class GameLogic {
     } else if (playerPts >= GameState.winningPoints && aiPts >= GameState.winningPoints) {
       winner = playerPts > aiPts ? PieceOwner.player : (aiPts > playerPts ? PieceOwner.ai : null);
       gameEnded = true;
+    } else if (bothStocksZero) {
+      // Fim forçado: ambos jogadores esgotaram estoque. Independente de turnos.
+      gameEnded = true;
+      winner = _decideWinnerByPoints(points, onBoard);
     } else if (actionsTaken >= state.maxActions) {
       gameEnded = true;
       winner = _decideWinnerByPoints(points, onBoard);
@@ -268,13 +312,19 @@ class GameLogic {
       final p = board[c.row][c.col];
       if (p == null || p.owner != onlyOwner) continue;
 
+      // Peça neutra é imune a forças — não atrai, não repele.
+      // Continua na casa, ainda funciona como barreira pra movimento de outras.
+      if (p.polarity == Polarity.neutral) {
+        processed.add(i);
+        continue;
+      }
+
       if (p.polarity != epicenterPolarity) {
         // Atração orbital solo: pula pra casa simétrica
         events.add(ForceEvent(from: epicenter, to: c, kind: ForceKind.attract));
         final tr = _wrapAxis(er - dirs[i][0]);
         final tc = _wrapAxis(ec - dirs[i][1]);
         if (board[tr][tc] != null) {
-          // Casa simétrica ocupada (raro com priorização) → fica parada
           processed.add(i);
           continue;
         }
@@ -387,11 +437,22 @@ class GameLogic {
         curOwner = p.owner;
         curStart = i;
         curLength = 1;
-        curPolarity = p.polarity;
-        curUniform = true;
+        // Peça neutra não fixa polaridade; uniform fica false se houver mistura
+        curPolarity = p.polarity.isNeutral ? null : p.polarity;
+        curUniform = !p.polarity.isNeutral;
       } else {
         curLength++;
-        if (curPolarity != null && p.polarity != curPolarity) curUniform = false;
+        if (p.polarity.isNeutral) {
+          // Neutra na sequência: quebra uniformidade
+          curUniform = false;
+        } else if (curPolarity == null) {
+          // Antes não havia polaridade fixa (todas neutras até agora) — pega esta
+          curPolarity = p.polarity;
+          // Ainda não-uniform porque tinha neutras antes
+          curUniform = false;
+        } else if (p.polarity != curPolarity) {
+          curUniform = false;
+        }
       }
     }
     flush();
@@ -422,6 +483,8 @@ class GameLogic {
   static List<GameAction> legalActions(GameState state) {
     final actions = <GameAction>[];
     final owner = state.currentPlayer;
+    final neutralsOwned = _countNeutralsFor(state.board, owner);
+    final canPlaceNeutral = neutralsOwned < 2;
 
     if ((state.stock[owner] ?? 0) > 0) {
       for (int r = 0; r < GameState.boardSize; r++) {
@@ -429,6 +492,9 @@ class GameLogic {
           if (state.board[r][c] == null) {
             actions.add(PlaceAction(row: r, col: c, polarity: Polarity.plus));
             actions.add(PlaceAction(row: r, col: c, polarity: Polarity.minus));
+            if (canPlaceNeutral) {
+              actions.add(PlaceAction(row: r, col: c, polarity: Polarity.neutral));
+            }
           }
         }
       }
@@ -438,7 +504,12 @@ class GameLogic {
       for (int c = 0; c < GameState.boardSize; c++) {
         final p = state.board[r][c];
         if (p != null && p.owner == owner) {
-          actions.add(FlipAction(row: r, col: c));
+          for (final target in Polarity.values) {
+            if (target == p.polarity) continue;
+            // Virar neutra exige vaga (não conta esta peça pois está mudando)
+            if (target == Polarity.neutral && neutralsOwned >= 2) continue;
+            actions.add(FlipAction(row: r, col: c, targetPolarity: target));
+          }
         }
       }
     }

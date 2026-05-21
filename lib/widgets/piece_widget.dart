@@ -28,6 +28,10 @@ class PieceWidget extends StatelessWidget {
   });
 
   Color get _haloColor {
+    if (piece.polarity == Polarity.neutral) {
+      // Neutra: halo cinza translúcido, sem cor de polaridade
+      return AppColors.ink2;
+    }
     if (colorblindMode) {
       return piece.polarity == Polarity.plus
           ? AppColors.colorblindPositive

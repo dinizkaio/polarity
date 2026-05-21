@@ -10,11 +10,9 @@ import '../utils/haptics_helper.dart';
 
 import '../providers/settings_provider.dart';
 
-/// Barra de ação contextual: muda conforme a fase do jogo.
-/// - Idle (sua vez): mostra instrução + chips opcionais (dica/desfazer)
-/// - choosingPolarity: 2 botões grandes ⊕ / ⊖
-/// - selectingPiece: botão grande "Girar polaridade"
-/// - aiThinking / resolving: estado esmaecido
+/// Barra de ação contextual. Mostra 3 botões de polaridade (⊕/⊖/○) tanto
+/// no place quanto no flip; o botão de neutra é desabilitado se o jogador
+/// já tem 2 neutras no tabuleiro.
 class ActionBar extends StatelessWidget {
   const ActionBar({super.key});
 
@@ -29,6 +27,7 @@ class ActionBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       child: switch (game.phase) {
         GamePhase.choosingPolarity => _PolarityChooser(
+          canPlaceNeutral: game.canPlaceNeutral(game.state.currentPlayer),
           onPlus: () {
             HapticsHelper.medium(settings);
             game.confirmPlace(Polarity.plus);
@@ -37,27 +36,37 @@ class ActionBar extends StatelessWidget {
             HapticsHelper.medium(settings);
             game.confirmPlace(Polarity.minus);
           },
+          onNeutral: () {
+            HapticsHelper.medium(settings);
+            game.confirmPlace(Polarity.neutral);
+          },
           onCancel: game.cancelSelection,
           prompt: l10n.gameChoosePolarity,
           cancelLabel: l10n.gameCancel,
         ),
-        GamePhase.selectingPiece => _FlipConfirmer(
+        GamePhase.selectingPiece => _FlipChooser(
           piece: _selectedPiece(game),
-          onConfirm: () {
+          canPickNeutral:
+              game.canPlaceNeutral(game.state.currentPlayer) ||
+              _selectedPiece(game)?.polarity == Polarity.neutral,
+          onPick: (target) {
             HapticsHelper.medium(settings);
-            game.confirmFlip();
+            game.confirmFlip(target);
           },
           onCancel: game.cancelSelection,
           prompt: l10n.gamePieceSelected,
           cancelLabel: l10n.gameCancel,
-          flipLabel: l10n.gameActionFlip,
         ),
         GamePhase.aiThinking => _Faded(text: l10n.gameAiTurn),
         GamePhase.resolving => _Faded(text: l10n.gameMagneticReaction),
         _ => _IdlePrompt(
-          text: game.state.currentPlayer == PieceOwner.player
-              ? l10n.gameYourTurn
-              : l10n.gameAiTurn,
+          text: game.localMultiplayer
+              ? (game.state.currentPlayer == PieceOwner.player
+                  ? l10n.gamePlayer1
+                  : l10n.gamePlayer2)
+              : (game.state.currentPlayer == PieceOwner.player
+                  ? l10n.gameYourTurn
+                  : l10n.gameAiTurn),
           instruction: l10n.gameInstructionPlace,
         ),
       },
@@ -108,14 +117,18 @@ class _Faded extends StatelessWidget {
 class _PolarityChooser extends StatelessWidget {
   final VoidCallback onPlus;
   final VoidCallback onMinus;
+  final VoidCallback onNeutral;
   final VoidCallback onCancel;
+  final bool canPlaceNeutral;
   final String prompt;
   final String cancelLabel;
 
   const _PolarityChooser({
     required this.onPlus,
     required this.onMinus,
+    required this.onNeutral,
     required this.onCancel,
+    required this.canPlaceNeutral,
     required this.prompt,
     required this.cancelLabel,
   });
@@ -136,8 +149,16 @@ class _PolarityChooser extends StatelessWidget {
         Row(
           children: [
             Expanded(child: _PolarityButton(symbol: '⊕', color: AppColors.haloPlus, onTap: onPlus)),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(child: _PolarityButton(symbol: '⊖', color: AppColors.haloMinus, onTap: onMinus)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _PolarityButton(
+                symbol: '○',
+                color: AppColors.ink2,
+                onTap: canPlaceNeutral ? onNeutral : null,
+              ),
+            ),
           ],
         ),
       ],
@@ -148,31 +169,37 @@ class _PolarityChooser extends StatelessWidget {
 class _PolarityButton extends StatelessWidget {
   final String symbol;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   const _PolarityButton({required this.symbol, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onTap != null;
     return SizedBox(
       height: 64,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            colors: [color.withValues(alpha: 0.55), color.withValues(alpha: 0.18)],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 18, spreadRadius: -4)],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.3,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              colors: [color.withValues(alpha: 0.55), color.withValues(alpha: 0.18)],
+            ),
             borderRadius: BorderRadius.circular(20),
-            onTap: onTap,
-            child: Center(
-              child: Text(
-                symbol,
-                style: AppTypography.pieceSymbol(color: AppColors.ink, size: 30),
+            border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
+            boxShadow: enabled
+                ? [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 18, spreadRadius: -4)]
+                : null,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: onTap,
+              child: Center(
+                child: Text(
+                  symbol,
+                  style: AppTypography.pieceSymbol(color: AppColors.ink, size: 28),
+                ),
               ),
             ),
           ),
@@ -182,29 +209,28 @@ class _PolarityButton extends StatelessWidget {
   }
 }
 
-class _FlipConfirmer extends StatelessWidget {
+/// Seletor para FLIP — 3 botões alvo (⊕/⊖/○). Desabilita a polaridade
+/// atual da peça (sem mudança) e a neutra se limite atingido.
+class _FlipChooser extends StatelessWidget {
   final Piece? piece;
-  final VoidCallback onConfirm;
+  final bool canPickNeutral;
+  final ValueChanged<Polarity> onPick;
   final VoidCallback onCancel;
   final String prompt;
   final String cancelLabel;
-  final String flipLabel;
 
-  const _FlipConfirmer({
+  const _FlipChooser({
     required this.piece,
-    required this.onConfirm,
+    required this.canPickNeutral,
+    required this.onPick,
     required this.onCancel,
     required this.prompt,
     required this.cancelLabel,
-    required this.flipLabel,
   });
 
   @override
   Widget build(BuildContext context) {
     final current = piece?.polarity;
-    final preview = current == null
-        ? '⊕ ↔ ⊖'
-        : '${current.symbol} → ${current.opposite.symbol}';
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -216,42 +242,34 @@ class _FlipConfirmer extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 64,
-          width: double.infinity,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: const RadialGradient(
-                colors: [Color(0xFF3A2F77), Color(0xFF1F1A4A)],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.haloMinus.withValues(alpha: 0.6), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.haloMinus.withValues(alpha: 0.3),
-                  blurRadius: 18,
-                  spreadRadius: -4,
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: onConfirm,
-                child: Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(preview, style: AppTypography.pieceSymbol(color: AppColors.ink, size: 22)),
-                      const SizedBox(width: 12),
-                      Text(flipLabel, style: AppTypography.uiButton()),
-                    ],
-                  ),
-                ),
+        Row(
+          children: [
+            Expanded(
+              child: _PolarityButton(
+                symbol: '⊕',
+                color: AppColors.haloPlus,
+                onTap: current == Polarity.plus ? null : () => onPick(Polarity.plus),
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _PolarityButton(
+                symbol: '⊖',
+                color: AppColors.haloMinus,
+                onTap: current == Polarity.minus ? null : () => onPick(Polarity.minus),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _PolarityButton(
+                symbol: '○',
+                color: AppColors.ink2,
+                onTap: (current == Polarity.neutral || !canPickNeutral)
+                    ? null
+                    : () => onPick(Polarity.neutral),
+              ),
+            ),
+          ],
         ),
       ],
     );
