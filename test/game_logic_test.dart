@@ -117,10 +117,11 @@ void main() {
           s, const PlaceAction(row: 0, col: 0, polarity: Polarity.plus))!.newState;
       s = GameLogic.applyAction(
           s, const PlaceAction(row: 4, col: 4, polarity: Polarity.minus))!.newState;
-      s = GameLogic.applyAction(s, const FlipAction(row: 0, col: 0))!.newState;
-      s = GameLogic.applyAction(s, const FlipAction(row: 4, col: 4))!.newState;
-      s = GameLogic.applyAction(s, const FlipAction(row: 0, col: 0))!.newState;
-      s = GameLogic.applyAction(s, const FlipAction(row: 4, col: 4))!.newState;
+      // Alterna polaridades — cada flip muda pra polaridade oposta
+      s = GameLogic.applyAction(s, const FlipAction(row: 0, col: 0, targetPolarity: Polarity.minus))!.newState;
+      s = GameLogic.applyAction(s, const FlipAction(row: 4, col: 4, targetPolarity: Polarity.plus))!.newState;
+      s = GameLogic.applyAction(s, const FlipAction(row: 0, col: 0, targetPolarity: Polarity.plus))!.newState;
+      s = GameLogic.applyAction(s, const FlipAction(row: 4, col: 4, targetPolarity: Polarity.minus))!.newState;
       expect(s.isGameOver, isTrue);
     });
   });
@@ -141,11 +142,47 @@ void main() {
   });
 
   group('GameLogic — Ações legais', () {
-    test('jogo inicial: 25 × 2 polaridades = 50 places, 0 flips', () {
+    test('jogo inicial: 25 × 3 polaridades = 75 places, 0 flips', () {
       final s = GameState.newGame(startingPlayer: PieceOwner.player);
       final actions = GameLogic.legalActions(s);
-      expect(actions.whereType<PlaceAction>().length, 50);
+      expect(actions.whereType<PlaceAction>().length, 75);
       expect(actions.whereType<FlipAction>().length, 0);
+    });
+
+    test('Place neutra: limite de 2 por jogador', () {
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
+      // Coloca 1ª neutra
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 0, col: 0, polarity: Polarity.neutral))!.newState;
+      expect(s.pieceAt(0, 0)?.polarity, Polarity.neutral);
+      // IA: longe
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 4, col: 4, polarity: Polarity.plus))!.newState;
+      // 2ª neutra
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 0, col: 4, polarity: Polarity.neutral))!.newState;
+      expect(s.pieceAt(0, 4)?.polarity, Polarity.neutral);
+      // IA: longe
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 4, col: 0, polarity: Polarity.plus))!.newState;
+      // 3ª neutra → bloqueado (retorna null)
+      final r = GameLogic.applyAction(
+        s,
+        const PlaceAction(row: 2, col: 2, polarity: Polarity.neutral),
+      );
+      expect(r, isNull);
+    });
+
+    test('Peça neutra é imune a forças', () {
+      var s = GameState.newGame(startingPlayer: PieceOwner.player);
+      // Player coloca neutra em (2,2)
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 2, col: 2, polarity: Polarity.neutral))!.newState;
+      // IA coloca ⊖ em (2,3) — neutra deveria ser imune
+      s = GameLogic.applyAction(
+          s, const PlaceAction(row: 2, col: 3, polarity: Polarity.minus))!.newState;
+      // A neutra permanece em (2,2)
+      expect(s.pieceAt(2, 2)?.polarity, Polarity.neutral);
     });
   });
 }

@@ -84,6 +84,9 @@ class AppLocalizations {
   String get gamePlayer2 => _get('gamePlayer2');
   String get gamePlayer1Short => _get('gamePlayer1Short');
   String get gamePlayer2Short => _get('gamePlayer2Short');
+  String get gamePolarityNeutral => _get('gamePolarityNeutral');
+  String get tutorialNeutralTitle => _get('tutorialNeutralTitle');
+  String get tutorialNeutralBody => _get('tutorialNeutralBody');
   String get endPlayer1Wins => _get('endPlayer1Wins');
   String get endPlayer2Wins => _get('endPlayer2Wins');
   String get menuPlayLocal => _get('menuPlayLocal');

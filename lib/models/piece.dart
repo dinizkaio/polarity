@@ -9,10 +9,33 @@ enum PieceOwner {
 /// Polaridade da peça.
 enum Polarity {
   plus,
-  minus;
+  minus,
+  neutral;
 
-  Polarity get opposite => this == Polarity.plus ? Polarity.minus : Polarity.plus;
-  String get symbol => this == Polarity.plus ? '⊕' : '⊖';
+  /// Para flip clássico: ⊕↔⊖. Neutra não tem oposto natural — retorna ela mesma.
+  Polarity get opposite {
+    switch (this) {
+      case Polarity.plus:
+        return Polarity.minus;
+      case Polarity.minus:
+        return Polarity.plus;
+      case Polarity.neutral:
+        return Polarity.neutral;
+    }
+  }
+
+  bool get isNeutral => this == Polarity.neutral;
+
+  String get symbol {
+    switch (this) {
+      case Polarity.plus:
+        return '⊕';
+      case Polarity.minus:
+        return '⊖';
+      case Polarity.neutral:
+        return '○';
+    }
+  }
 }
 
 /// Uma peça no tabuleiro. Imutável.

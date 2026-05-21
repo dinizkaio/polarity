@@ -18,8 +18,13 @@ class PlaceAction extends GameAction {
 class FlipAction extends GameAction {
   final int row;
   final int col;
-  const FlipAction({required this.row, required this.col});
+  final Polarity targetPolarity;
+  const FlipAction({
+    required this.row,
+    required this.col,
+    required this.targetPolarity,
+  });
 
   @override
-  String toString() => 'Flip($row,$col)';
+  String toString() => 'Flip($row,$col→$targetPolarity)';
 }

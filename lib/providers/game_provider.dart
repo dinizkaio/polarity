@@ -133,12 +133,22 @@ class GameProvider extends ChangeNotifier {
     _executeAction(PlaceAction(row: cell.row, col: cell.col, polarity: polarity));
   }
 
-  void confirmFlip() {
+  void confirmFlip(Polarity targetPolarity) {
     final cell = _selectedPiece;
     if (cell == null) return;
     if (!currentTurnIsHuman) return;
-    _executeAction(FlipAction(row: cell.row, col: cell.col));
+    _executeAction(FlipAction(
+      row: cell.row,
+      col: cell.col,
+      targetPolarity: targetPolarity,
+    ));
   }
+
+  /// Quantas peças neutras [owner] tem no tabuleiro (limite é 2).
+  int neutralsOwnedBy(PieceOwner owner) =>
+      GameLogic.countNeutralsFor(_state, owner);
+
+  bool canPlaceNeutral(PieceOwner owner) => neutralsOwnedBy(owner) < 2;
 
   void _executeAction(GameAction action) {
     final result = GameLogic.applyAction(_state, action);
