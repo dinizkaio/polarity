@@ -25,9 +25,10 @@ enum GamePhase {
 /// Após animar todos os eventos, a UI chama `onAnimationComplete()` para avançar.
 class GameProvider extends ChangeNotifier {
   AiDifficulty _difficulty;
+  int _maxTurns;
   final AiEngine _ai;
 
-  GameState _state = GameState.newGame();
+  late GameState _state;
   GamePhase _phase = GamePhase.idle;
   List<AnimationEvent> _pendingEvents = const [];
 
@@ -35,11 +36,17 @@ class GameProvider extends ChangeNotifier {
   ({int row, int col})? _selectedEmptyCell; // tocou casa vazia
   ({int row, int col})? _selectedPiece;     // tocou peça sua
 
-  GameProvider({AiDifficulty difficulty = AiDifficulty.apprentice})
-      : _difficulty = difficulty,
+  GameProvider({
+    AiDifficulty difficulty = AiDifficulty.apprentice,
+    int maxTurns = GameState.defaultMaxTurns,
+  })  : _difficulty = difficulty,
+        _maxTurns = maxTurns,
         _ai = AiEngine() {
+    _state = GameState.newGame(maxTurns: maxTurns);
     _bootstrapTurn();
   }
+
+  int get maxTurns => _maxTurns;
 
   /// Se IA começou na partida (sorteio inicial), agenda o turno dela.
   void _bootstrapTurn() {
@@ -63,7 +70,7 @@ class GameProvider extends ChangeNotifier {
 
   /// Reset completo. Use ao iniciar nova partida.
   void newGame() {
-    _state = GameState.newGame();
+    _state = GameState.newGame(maxTurns: _maxTurns);
     _phase = GamePhase.idle;
     _pendingEvents = const [];
     _selectedEmptyCell = null;

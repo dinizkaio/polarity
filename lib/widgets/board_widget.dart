@@ -135,6 +135,12 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
         });
         await _wait((350 * mult).round());
 
+      case DestroyEvent(:final from, :final piece):
+        HapticsHelper.heavy(settings);
+        _spawnRecycle(from, _haloColor(piece));
+        setState(() => _displayBoard[from.row][from.col] = null);
+        await _wait((500 * mult).round());
+
       case LineCompletedEvent():
         HapticsHelper.heavy(settings);
         _spawnLineFlash(event);

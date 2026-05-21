@@ -4,22 +4,25 @@
 
 5×5, single-player vs IA (3 níveis), 1–3 min por partida. Flutter / Dart, com i18n PT/EN/ES.
 
-## v0.4.0 — diferenças em relação ao briefing original
+## v0.5.0 — diferenças em relação ao briefing original
 
-**Mudança de paradigma**: jogo deixou de ser sobre destruição e virou sobre **construção de padrões**. Peças não são mais aniquiladas — apenas reposicionadas. Vence quem forma mais linhas/colunas/diagonais.
+**Jogo é sobre construção de padrões.** Peças não são aniquiladas em colisões — apenas reposicionadas. Vence quem forma mais linhas/colunas/diagonais.
 
-- **`pubspec.yaml` já está versionado** com todas as deps (provider, hive, google_fonts, google_mobile_ads, in_app_purchase).
-- **Localizações hand-rolled** em `lib/l10n/strings_*.dart`. Não precisa rodar `flutter gen-l10n` — os `.arb` em `l10n/` ficam como documentação.
-- **Física v6 (sem destruição)**:
-  - **Atração orbital solo**: peça oposta pula pelo epicentro pra casa simétrica (com wrap toroidal).
+- **`pubspec.yaml` já está versionado** com todas as deps.
+- **Localizações hand-rolled** em `lib/l10n/strings_*.dart`.
+- **Física v7**:
+  - **Atração orbital solo**: peça oposta pula pelo epicentro pra casa simétrica (wrap toroidal).
   - **Atração em par**: opostos dos dois lados do epicentro trocam de posição (swap).
-  - **Repulsão**: peça empurrada 1 casa pra longe; se destino ocupado, fica parada. Sem cadeia.
+  - **Repulsão**: empurra 1 casa; se destino ocupado, fica parada.
+  - **Ordem da onda**: peças MINHAS processadas primeiro, depois do oponente.
   - **Flip de polaridade** vale 1 jogada e ativa onda imediata.
-- **Pontuação por linhas**: 3 em linha = +1, 4 = +3, 5 (mistas) = +5, 5 (mesma polaridade) = +10. Quando completa 5, peças voltam ao estoque do dono (reciclagem).
-- **Vitória**: primeiro a 15 pontos OU mais pontos ao fim de 20 turnos.
-- **20 turnos × 10 peças** + início aleatório 50/50.
-- **Fim antecipado por stalemate por inércia** (4 flips consecutivos sem efeito).
-- **Monetização cabeada**: `lib/services/ads_service.dart` (intersticial + rewarded) e `lib/services/purchases_service.dart` (IAP remove_ads). Antes do release, trocar os IDs de teste no `ads_service.dart` pelos IDs reais de produção e configurar produto `remove_ads` na Play Console / App Store Connect (R$ 9,90 / US$ 1.99 / €1.99).
+- **Pontuação por linhas**: 3=+1, 4=+3, 5 mistas=+5, 5 mesma polaridade=+10. **Recontagem total a cada turno** — formações ativas pontuam de novo a cada turno em que permanecem completas.
+- **5-em-linha rouba**: quando uma linha de 5 é formada pela primeira vez, o dono tira 1 peça aleatória do oponente do tabuleiro (destruída permanentemente).
+- **Pontuação visível** no tray de cada jogador durante a partida.
+- **Vitória**: primeiro a 15 pontos OU mais pontos ao fim dos turnos.
+- **Turnos configuráveis**: Aprendiz fixo em 20; Adepto/Mestre escolhem 30, 40 ou 50.
+- **Início aleatório 50/50** + **fim por stalemate por inércia** (4 flips vazios consecutivos).
+- **Monetização cabeada**: `lib/services/ads_service.dart` (intersticial + rewarded) e `lib/services/purchases_service.dart` (IAP remove_ads). Antes do release, trocar IDs de teste e configurar produto `remove_ads` (R$ 9,90 / US$ 1.99 / €1.99).
 - **Design study preservado** em `design_study/`.
 
 Ao rodar `flutter create . --platforms=android,ios` o Flutter cria android/, ios/ etc — ele não vai mexer no pubspec.yaml já existente nem nos arquivos em `lib/`. Confirme o nome do projeto (`polaridade`) e o org (`app.polaridade`).

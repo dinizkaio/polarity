@@ -12,6 +12,7 @@ class PlayerTray extends StatelessWidget {
   final String name;
   final int stockCount;
   final int onBoardCount;
+  final int points;
   final bool isCurrent;
   final bool isThinking;
 
@@ -21,6 +22,7 @@ class PlayerTray extends StatelessWidget {
     required this.name,
     required this.stockCount,
     required this.onBoardCount,
+    required this.points,
     required this.isCurrent,
     this.isThinking = false,
   });
@@ -43,7 +45,6 @@ class PlayerTray extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Avatar
           Container(
             width: 36,
             height: 36,
@@ -62,7 +63,6 @@ class PlayerTray extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Nome + estoque dots
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,12 +92,36 @@ class PlayerTray extends StatelessWidget {
               ],
             ),
           ),
-          // Contador / status
-          Text(
-            isThinking ? l10n.gameThinking : l10n.gameOnBoard(onBoardCount),
-            style: AppTypography.monoSmall(
-              color: isThinking ? AppColors.haloMinus : AppColors.ink3,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Pontos com destaque
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '$points',
+                    style: AppTypography.h2(color: AppColors.haloPlus, weight: FontWeight.w600).copyWith(fontSize: 22),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    l10n.gameScoreLabel.toUpperCase(),
+                    style: AppTypography.monoSmall(color: AppColors.ink3, size: 9),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                isThinking ? l10n.gameThinking : l10n.gameOnBoard(onBoardCount),
+                style: AppTypography.monoSmall(
+                  color: isThinking ? AppColors.haloMinus : AppColors.ink3,
+                  size: 10,
+                ),
+              ),
+            ],
           ),
         ],
       ),

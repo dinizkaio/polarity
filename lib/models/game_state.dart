@@ -6,7 +6,7 @@ import 'piece.dart';
 class GameState {
   static const int boardSize = 5;
   static const int stockSize = 10;
-  static const int maxActions = 40; // 20 turnos × 2 jogadores
+  static const int defaultMaxTurns = 20;
   static const int stalemateThreshold = 4;
   static const int winningPoints = 15;
   static const int totalLines = 12; // 5 rows + 5 cols + 2 diagonals
@@ -19,11 +19,14 @@ class GameState {
   /// Pontuação acumulada da partida.
   final Map<PieceOwner, int> points;
 
-  /// Histórico: máximo comprimento alcançado em cada linha (0..11) por cada
-  /// dono. Pontuação 3/4/5 só ganha quando a linha SUPERA seu próprio recorde.
-  /// Resetada pra zero quando uma linha completa 5 (reciclagem) — permite
-  /// pontuar de novo na próxima reconstrução.
-  final Map<int, Map<PieceOwner, int>> linesMaxLength;
+  /// Quais linhas (0..11) têm 5-em-linha do mesmo dono ATUALMENTE.
+  /// Usado pra detectar quando uma 5-em-linha se forma de NOVO (delta) —
+  /// nesses momentos, o dono tira 1 peça aleatória do oponente.
+  final Map<int, PieceOwner> linesWithFive;
+
+  /// Quantos turnos a partida tem (cada turno = 2 ações). Configurável pela
+  /// dificuldade: Aprendiz = 20, Adepto/Mestre = 30/40/50.
+  final int maxTurns;
 
   /// Contador de ações consecutivas sem efeito (flip que não causou Move).
   final int consecutiveEmptyActions;
@@ -37,16 +40,21 @@ class GameState {
     required this.stock,
     required this.onBoard,
     required this.points,
-    required this.linesMaxLength,
+    required this.linesWithFive,
+    required this.maxTurns,
     required this.consecutiveEmptyActions,
     required this.actionsTaken,
     required this.currentPlayer,
     required this.winner,
   });
 
-  /// Cria nova partida. Primeiro jogador é aleatório (50/50) — "a gravidade
-  /// decide". Pra testes determinísticos, passar [startingPlayer] explícito.
-  factory GameState.newGame({PieceOwner? startingPlayer, Random? rng}) {
+  /// Cria nova partida. Primeiro jogador é aleatório (50/50).
+  /// [maxTurns] define o número de turnos (cada turno = 2 ações).
+  factory GameState.newGame({
+    PieceOwner? startingPlayer,
+    Random? rng,
+    int maxTurns = defaultMaxTurns,
+  }) {
     final firstPlayer = startingPlayer ??
         ((rng ?? Random()).nextBool() ? PieceOwner.player : PieceOwner.ai);
     return GameState._(
@@ -54,10 +62,8 @@ class GameState {
       stock: {PieceOwner.player: stockSize, PieceOwner.ai: stockSize},
       onBoard: {PieceOwner.player: 0, PieceOwner.ai: 0},
       points: {PieceOwner.player: 0, PieceOwner.ai: 0},
-      linesMaxLength: {
-        for (int i = 0; i < totalLines; i++)
-          i: {PieceOwner.player: 0, PieceOwner.ai: 0}
-      },
+      linesWithFive: const {},
+      maxTurns: maxTurns,
       consecutiveEmptyActions: 0,
       actionsTaken: 0,
       currentPlayer: firstPlayer,
@@ -70,7 +76,8 @@ class GameState {
     Map<PieceOwner, int>? stock,
     Map<PieceOwner, int>? onBoard,
     Map<PieceOwner, int>? points,
-    Map<int, Map<PieceOwner, int>>? linesMaxLength,
+    Map<int, PieceOwner>? linesWithFive,
+    int? maxTurns,
     int? consecutiveEmptyActions,
     int? actionsTaken,
     PieceOwner? currentPlayer,
@@ -81,7 +88,8 @@ class GameState {
       stock: stock ?? this.stock,
       onBoard: onBoard ?? this.onBoard,
       points: points ?? this.points,
-      linesMaxLength: linesMaxLength ?? this.linesMaxLength,
+      linesWithFive: linesWithFive ?? this.linesWithFive,
+      maxTurns: maxTurns ?? this.maxTurns,
       consecutiveEmptyActions: consecutiveEmptyActions ?? this.consecutiveEmptyActions,
       actionsTaken: actionsTaken ?? this.actionsTaken,
       currentPlayer: currentPlayer ?? this.currentPlayer,
@@ -93,17 +101,12 @@ class GameState {
   List<List<Piece?>> cloneBoard() =>
       board.map((row) => List<Piece?>.from(row)).toList(growable: false);
 
-  /// Clone profundo do linesMaxLength.
-  Map<int, Map<PieceOwner, int>> cloneLinesMaxLength() {
-    return {
-      for (final entry in linesMaxLength.entries)
-        entry.key: Map<PieceOwner, int>.from(entry.value)
-    };
-  }
+  /// Número máximo de ações da partida (cada turno = 2 ações).
+  int get maxActions => maxTurns * 2;
 
-  /// Turno atual exibido na UI (1..maxActions/2). Cada turno = 1 ação do jogador + 1 da IA.
+  /// Turno atual exibido na UI (1..maxTurns).
   int get displayTurn => (actionsTaken ~/ 2) + 1;
-  int get maxDisplayTurns => maxActions ~/ 2;
+  int get maxDisplayTurns => maxTurns;
 
   bool get isGameOver => winner != null;
 
@@ -112,3 +115,4 @@ class GameState {
     return board[row][col];
   }
 }
+
