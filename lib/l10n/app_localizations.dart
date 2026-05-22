@@ -87,6 +87,16 @@ class AppLocalizations {
   String get gamePolarityNeutral => _get('gamePolarityNeutral');
   String get tutorialNeutralTitle => _get('tutorialNeutralTitle');
   String get tutorialNeutralBody => _get('tutorialNeutralBody');
+  String get previewLabel => _get('previewLabel');
+  String get previewNoEffect => _get('previewNoEffect');
+  String previewOppGains(int n) => _format('previewOppGains', {'n': n});
+  String previewSteal(int n) => _format('previewSteal', {'n': n});
+  String get previewConfirm => _get('previewConfirm');
+  String get previewCancel => _get('previewCancel');
+  String get settingsPreviewMode => _get('settingsPreviewMode');
+  String get settingsPreviewAuto => _get('settingsPreviewAuto');
+  String get settingsPreviewAlways => _get('settingsPreviewAlways');
+  String get settingsPreviewNever => _get('settingsPreviewNever');
   String get endPlayer1Wins => _get('endPlayer1Wins');
   String get endPlayer2Wins => _get('endPlayer2Wins');
   String get menuPlayLocal => _get('menuPlayLocal');

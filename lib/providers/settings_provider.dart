@@ -3,6 +3,12 @@ import 'package:hive/hive.dart';
 
 enum AnimationSpeed { normal, fast }
 
+/// Quando mostrar o preview de jogada (ver resultado antes de confirmar).
+/// - auto: ativo no Aprendiz e no modo local 1×1; oculto em Adepto/Mestre
+/// - always: sempre ativo
+/// - never: sempre oculto
+enum PreviewMode { auto, always, never }
+
 /// Preferências do usuário, persistidas em Hive box "settings".
 class SettingsProvider extends ChangeNotifier {
   static const String _boxName = 'settings';
@@ -15,6 +21,7 @@ class SettingsProvider extends ChangeNotifier {
   static const String _kAnimationSpeed = 'animationSpeed';
   static const String _kLocale = 'locale';
   static const String _kTutorialSeen = 'tutorialSeen';
+  static const String _kPreviewMode = 'previewMode';
 
   Future<void> init() async {
     _box = await Hive.openBox(_boxName);
@@ -79,6 +86,19 @@ class SettingsProvider extends ChangeNotifier {
   bool get tutorialSeen => _box.get(_kTutorialSeen, defaultValue: false) as bool;
   set tutorialSeen(bool v) {
     _box.put(_kTutorialSeen, v);
+    notifyListeners();
+  }
+
+  PreviewMode get previewMode {
+    final raw = _box.get(_kPreviewMode, defaultValue: 'auto') as String;
+    return PreviewMode.values.firstWhere(
+      (p) => p.name == raw,
+      orElse: () => PreviewMode.auto,
+    );
+  }
+
+  set previewMode(PreviewMode v) {
+    _box.put(_kPreviewMode, v.name);
     notifyListeners();
   }
 }
