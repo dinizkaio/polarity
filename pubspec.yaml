@@ -1,7 +1,7 @@
 name: polaridade
 description: "Polaridade — Atração, repulsão, vitória. Jogo de tabuleiro abstrato 5×5 vs IA."
 publish_to: 'none'
-version: 0.8.0+8
+version: 0.8.1+9
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

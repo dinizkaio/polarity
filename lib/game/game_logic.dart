@@ -263,7 +263,10 @@ class GameLogic {
       winner = playerPts > aiPts ? PieceOwner.player : (aiPts > playerPts ? PieceOwner.ai : null);
       gameEnded = true;
     } else if (bothStocksZero) {
-      // Fim forçado: ambos jogadores esgotaram estoque. Independente de turnos.
+      // Fim ÚNICO por exaustão: AMBOS jogadores zeraram estoque.
+      // Não importa quantas peças cada um tem no tabuleiro nem turnos restantes.
+      // Quem ainda tem peças mas não estoque pode continuar flippando enquanto
+      // o outro tiver estoque pra colocar.
       gameEnded = true;
       winner = _decideWinnerByPoints(points, onBoard);
     } else if (actionsTaken >= state.maxActions) {
@@ -401,61 +404,52 @@ class GameLogic {
     }
   }
 
+  /// Encontra a maior subsequência consecutiva do mesmo dono numa linha.
+  /// Implementação sem closure (evita possíveis problemas de captura).
   static _RunResult _findLongestRun(List<Piece?> pieces) {
     PieceOwner? bestOwner;
     int bestLength = 0;
     int bestStart = 0;
     bool bestUniform = false;
 
-    PieceOwner? curOwner;
-    int curStart = 0;
-    int curLength = 0;
-    Polarity? curPolarity;
-    bool curUniform = true;
-
-    void flush() {
-      if (curLength > bestLength && curOwner != null) {
-        bestOwner = curOwner;
-        bestLength = curLength;
-        bestStart = curStart;
-        bestUniform = curUniform;
-      }
-    }
-
-    for (int i = 0; i < pieces.length; i++) {
+    int i = 0;
+    while (i < pieces.length) {
       final p = pieces[i];
       if (p == null) {
-        flush();
-        curOwner = null;
-        curLength = 0;
-        curPolarity = null;
-        curUniform = true;
+        i++;
         continue;
       }
-      if (p.owner != curOwner) {
-        flush();
-        curOwner = p.owner;
-        curStart = i;
-        curLength = 1;
-        // Peça neutra não fixa polaridade; uniform fica false se houver mistura
-        curPolarity = p.polarity.isNeutral ? null : p.polarity;
-        curUniform = !p.polarity.isNeutral;
-      } else {
-        curLength++;
-        if (p.polarity.isNeutral) {
-          // Neutra na sequência: quebra uniformidade
-          curUniform = false;
-        } else if (curPolarity == null) {
-          // Antes não havia polaridade fixa (todas neutras até agora) — pega esta
-          curPolarity = p.polarity;
-          // Ainda não-uniform porque tinha neutras antes
-          curUniform = false;
-        } else if (p.polarity != curPolarity) {
-          curUniform = false;
+      // Inicia uma run desse owner — anda enquanto for o mesmo
+      final owner = p.owner;
+      final start = i;
+      int length = 0;
+      Polarity? polarity;
+      bool uniform = true;
+      while (i < pieces.length) {
+        final q = pieces[i];
+        if (q == null) break;
+        if (q.owner != owner) break;
+        length++;
+        if (q.polarity.isNeutral) {
+          uniform = false;
+        } else if (polarity == null) {
+          polarity = q.polarity;
+          if (length > 1) {
+            // Houve neutras antes → não-uniform
+            uniform = false;
+          }
+        } else if (q.polarity != polarity) {
+          uniform = false;
         }
+        i++;
+      }
+      if (length > bestLength) {
+        bestOwner = owner;
+        bestLength = length;
+        bestStart = start;
+        bestUniform = uniform;
       }
     }
-    flush();
 
     return _RunResult(
       owner: bestOwner,
