@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'providers/settings_provider.dart';
 import 'services/ads_service.dart';
+import 'services/music_service.dart';
 import 'services/purchases_service.dart';
 import 'services/sound_service.dart';
 
@@ -48,6 +49,9 @@ Future<void> main() async {
   final sound = SoundService(settings);
   unawaited(sound.init());
 
+  final music = MusicService(settings);
+  unawaited(music.init());
+
   runApp(
     MultiProvider(
       providers: [
@@ -55,6 +59,7 @@ Future<void> main() async {
         ChangeNotifierProvider<PurchasesService>.value(value: purchases),
         Provider<AdsService>.value(value: ads),
         Provider<SoundService>.value(value: sound),
+        Provider<MusicService>.value(value: music),
       ],
       child: const PolaridadeApp(),
     ),
