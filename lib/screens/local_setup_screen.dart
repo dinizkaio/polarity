@@ -53,7 +53,7 @@ class _LocalSetupScreenState extends State<LocalSetupScreen> {
                 const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
+                    color: Colors.white.withOpacity(0.04),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
@@ -68,8 +68,8 @@ class _LocalSetupScreenState extends State<LocalSetupScreen> {
                               gradient: isSelected
                                   ? LinearGradient(
                                       colors: [
-                                        AppColors.haloPlus.withValues(alpha: 0.6),
-                                        AppColors.haloPlus.withValues(alpha: 0.3),
+                                        AppColors.haloPlus.withOpacity(0.6),
+                                        AppColors.haloPlus.withOpacity(0.3),
                                       ],
                                     )
                                   : null,

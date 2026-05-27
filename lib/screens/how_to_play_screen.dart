@@ -55,7 +55,7 @@ class HowToPlayScreen extends StatelessWidget {
                                   height: 28,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: AppColors.haloMinus.withValues(alpha: 0.3),
+                                    color: AppColors.haloMinus.withOpacity(0.3),
                                   ),
                                   child: Center(
                                     child: Text(

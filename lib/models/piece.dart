@@ -33,7 +33,7 @@ enum Polarity {
       case Polarity.minus:
         return '⊖';
       case Polarity.neutral:
-        return '○';
+        return '⬢';
     }
   }
 }

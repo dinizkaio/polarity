@@ -36,11 +36,11 @@ class PlayerTray extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: isCurrent
-            ? AppColors.haloMinus.withValues(alpha: 0.12)
-            : Colors.white.withValues(alpha: 0.03),
+            ? AppColors.haloMinus.withOpacity(0.12)
+            : Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isCurrent ? AppColors.haloMinus.withValues(alpha: 0.4) : AppColors.line,
+          color: isCurrent ? AppColors.haloMinus.withOpacity(0.4) : AppColors.line,
         ),
       ),
       child: Row(
@@ -51,11 +51,11 @@ class PlayerTray extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
-                colors: [avatarColor, avatarColor.withValues(alpha: 0.4)],
+                colors: [avatarColor, avatarColor.withOpacity(0.4)],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: avatarColor.withValues(alpha: 0.4),
+                  color: avatarColor.withOpacity(0.4),
                   blurRadius: 12,
                   spreadRadius: -2,
                 ),
@@ -82,7 +82,7 @@ class PlayerTray extends StatelessWidget {
                           shape: BoxShape.circle,
                           color: used ? Colors.transparent : avatarColor,
                           border: used
-                              ? Border.all(color: avatarColor.withValues(alpha: 0.4))
+                              ? Border.all(color: avatarColor.withOpacity(0.4))
                               : null,
                         ),
                       ),

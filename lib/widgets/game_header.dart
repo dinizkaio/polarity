@@ -63,7 +63,7 @@ class _IconCircle extends StatelessWidget {
       width: 44,
       height: 44,
       child: Material(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: Colors.white.withOpacity(0.04),
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),

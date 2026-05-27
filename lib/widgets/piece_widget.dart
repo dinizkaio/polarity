@@ -4,13 +4,18 @@ import '../models/piece.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
-/// Renderização da peça. 4 camadas:
-/// 1. Halo (cor da polaridade, blur)
-/// 2. Corpo (cor do dono, gradient radial)
-/// 3. Highlight especular
-/// 4. Símbolo (⊕ ou ⊖)
+/// Renderização da peça.
 ///
-/// IMPORTANTE: anel duplo interno na peça da IA é vetor de acessibilidade.
+/// **Peças ⊕/⊖**: discos circulares. 4 camadas — halo (cor da polaridade),
+/// corpo (cor do dono), highlight especular, símbolo.
+///
+/// **Peças neutras (○)**: forma DIAMANTE (quadrado rotacionado 45°) pra ser
+/// visualmente óbvio que não é ⊕/⊖. Mantém a cor de corpo do dono (player
+/// branco-quente, IA ciano-frio) pra identidade. Símbolo central ⬢
+/// (hexágono) também diferente de ⊕/⊖. Halo cinza neutro.
+///
+/// **IA**: anel duplo interno (vetor de acessibilidade — distingue dono
+/// mesmo em b/w).
 class PieceWidget extends StatelessWidget {
   final Piece piece;
   final double size;
@@ -27,11 +32,10 @@ class PieceWidget extends StatelessWidget {
     this.epicenter = false,
   });
 
+  bool get _isNeutral => piece.polarity == Polarity.neutral;
+
   Color get _haloColor {
-    if (piece.polarity == Polarity.neutral) {
-      // Neutra: halo cinza translúcido, sem cor de polaridade
-      return AppColors.ink2;
-    }
+    if (_isNeutral) return AppColors.ink2;
     if (colorblindMode) {
       return piece.polarity == Polarity.plus
           ? AppColors.colorblindPositive
@@ -48,6 +52,12 @@ class PieceWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_isNeutral) return _buildNeutral();
+    return _buildCharged();
+  }
+
+  /// Peça normal (⊕/⊖): disco circular com halo colorido por polaridade.
+  Widget _buildCharged() {
     final pieceSize = size * 0.78;
     final haloSize = pieceSize * 1.22;
 
@@ -65,8 +75,8 @@ class PieceWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _haloColor.withValues(alpha: 0.8),
-                    _haloColor.withValues(alpha: 0.0),
+                    _haloColor.withOpacity(0.8),
+                    _haloColor.withOpacity(0.0),
                   ],
                   stops: const [0.0, 0.6],
                 ),
@@ -95,7 +105,7 @@ class PieceWidget extends StatelessWidget {
                   ),
               ],
             ),
-            child: piece.owner == PieceOwner.ai ? _aiInnerRing(pieceSize) : null,
+            child: piece.owner == PieceOwner.ai ? _aiInnerRing(pieceSize, BoxShape.circle) : null,
           ),
           IgnorePointer(
             child: Container(
@@ -107,8 +117,8 @@ class PieceWidget extends StatelessWidget {
                   center: const Alignment(-0.4, -0.5),
                   radius: 0.5,
                   colors: [
-                    Colors.white.withValues(alpha: 0.45),
-                    Colors.white.withValues(alpha: 0.0),
+                    Colors.white.withOpacity(0.45),
+                    Colors.white.withOpacity(0.0),
                   ],
                 ),
               ),
@@ -126,21 +136,116 @@ class PieceWidget extends StatelessWidget {
     );
   }
 
-  Widget _aiInnerRing(double pieceSize) {
+  /// Peça neutra: DIAMANTE (quadrado rotacionado 45°). Forma diferente de
+  /// círculo pra ser instantaneamente distinguível de ⊕/⊖.
+  Widget _buildNeutral() {
+    // Diamante cabe dentro do círculo de raio pieceSize/2 → diagonal do
+    // quadrado = pieceSize. Lado do quadrado = pieceSize / sqrt(2) ≈ 0.707×.
+    final pieceSize = size * 0.78;
+    final diamondSide = pieceSize * 0.72;
+    final haloSize = pieceSize * 1.22;
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Halo cinza sutil (sem pulse — neutra é estática)
+          IgnorePointer(
+            child: Container(
+              width: haloSize,
+              height: haloSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    _haloColor.withOpacity(0.4),
+                    _haloColor.withOpacity(0.0),
+                  ],
+                  stops: const [0.0, 0.6],
+                ),
+              ),
+            ),
+          ),
+          // Corpo: diamante (rotated square)
+          Transform.rotate(
+            angle: 0.785398, // 45° em radianos
+            child: Container(
+              width: diamondSide,
+              height: diamondSide,
+              decoration: BoxDecoration(
+                gradient: _bodyGradient,
+                borderRadius: BorderRadius.circular(diamondSide * 0.12),
+                boxShadow: [
+                  const BoxShadow(
+                    color: Color(0x4D000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: piece.owner == PieceOwner.ai
+                  ? _aiInnerRing(diamondSide, BoxShape.rectangle)
+                  : null,
+            ),
+          ),
+          // Highlight especular (sutil, rotacionado também)
+          IgnorePointer(
+            child: Transform.rotate(
+              angle: 0.785398,
+              child: Container(
+                width: diamondSide,
+                height: diamondSide,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(diamondSide * 0.12),
+                  gradient: RadialGradient(
+                    center: const Alignment(-0.4, -0.5),
+                    radius: 0.5,
+                    colors: [
+                      Colors.white.withOpacity(0.35),
+                      Colors.white.withOpacity(0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Símbolo: hexágono ⬢ (não rotacionado, pra leitura natural)
+          Text(
+            '⬢',
+            style: AppTypography.pieceSymbol(
+              color: _symbolColor,
+              size: pieceSize * 0.42,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Anel duplo interno — vetor de acessibilidade pra IA. Aceita forma
+  /// (círculo pra ⊕/⊖, retângulo pro diamante).
+  Widget _aiInnerRing(double pieceSize, BoxShape shape) {
+    final borderRadius = shape == BoxShape.rectangle
+        ? BorderRadius.circular(pieceSize * 0.12)
+        : null;
     return Padding(
       padding: EdgeInsets.all(pieceSize * 0.08),
       child: Container(
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.5),
+          shape: shape,
+          borderRadius: borderRadius,
+          border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
         ),
         child: Padding(
           padding: EdgeInsets.all(pieceSize * 0.045),
           child: Container(
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              shape: shape,
+              borderRadius: borderRadius,
               border: Border.all(
-                color: const Color(0xFF0A2530).withValues(alpha: 0.6),
+                color: const Color(0xFF0A2530).withOpacity(0.6),
                 width: 2,
               ),
             ),

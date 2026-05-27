@@ -33,8 +33,8 @@ class MenuScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        AppColors.haloPlus.withValues(alpha: 0.8),
-                        AppColors.haloMinus.withValues(alpha: 0.2),
+                        AppColors.haloPlus.withOpacity(0.8),
+                        AppColors.haloMinus.withOpacity(0.2),
                         Colors.transparent,
                       ],
                     ),

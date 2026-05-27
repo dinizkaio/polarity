@@ -108,8 +108,8 @@ class _OrbitalLogo extends StatelessWidget {
             shape: BoxShape.circle,
             gradient: RadialGradient(
               colors: [
-                AppColors.haloPlus.withValues(alpha: 0.9),
-                AppColors.haloMinus.withValues(alpha: 0.0),
+                AppColors.haloPlus.withOpacity(0.9),
+                AppColors.haloMinus.withOpacity(0.0),
               ],
             ),
           ),
@@ -141,9 +141,9 @@ class _MiniPiece extends StatelessWidget {
       height: 32,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color.withValues(alpha: 0.9),
+        color: color.withOpacity(0.9),
         boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 12),
+          BoxShadow(color: color.withOpacity(0.6), blurRadius: 12),
         ],
       ),
       child: Center(
@@ -190,7 +190,7 @@ class _LoadingDotsState extends State<_LoadingDots> with SingleTickerProviderSta
                 height: 6,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.ink2.withValues(alpha: opacity),
+                  color: AppColors.ink2.withOpacity(opacity),
                 ),
               ),
             );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,7 @@ import '../models/piece.dart';
 import '../providers/game_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/ads_service.dart';
+import '../services/sound_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/haptics_helper.dart';
 import '../widgets/action_bar.dart';
@@ -91,18 +94,22 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
     final settings = context.watch<SettingsProvider>();
     final l10n = AppLocalizations.of(context);
 
-    // Feedback háptico em fim de partida
+    // Feedback háptico + sonoro em fim de partida
     if (game.phase == GamePhase.ended && !_endShown) {
       _endShown = true;
-      // No modo local, sempre dispara vitória (alguém ganhou).
-      // No modo vs IA, só se o player venceu.
+      final sound = context.read<SoundService>();
       final shouldCelebrate = game.localMultiplayer
           ? game.state.winner != null
           : game.state.winner == PieceOwner.player;
-      if (shouldCelebrate) {
+      if (game.state.winner == null) {
+        HapticsHelper.medium(settings);
+        unawaited(sound.play(Sfx.draw));
+      } else if (shouldCelebrate) {
         HapticsHelper.victoryPattern(settings);
+        unawaited(sound.play(Sfx.victory));
       } else {
         HapticsHelper.medium(settings);
+        unawaited(sound.play(Sfx.defeat));
       }
     }
 

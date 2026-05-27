@@ -10,6 +10,7 @@ import 'app.dart';
 import 'providers/settings_provider.dart';
 import 'services/ads_service.dart';
 import 'services/purchases_service.dart';
+import 'services/sound_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,12 +45,16 @@ Future<void> main() async {
   // Ads inicializa em background — não bloqueia o startup (no-op em web)
   unawaited(ads.init());
 
+  final sound = SoundService(settings);
+  unawaited(sound.init());
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<SettingsProvider>.value(value: settings),
         ChangeNotifierProvider<PurchasesService>.value(value: purchases),
         Provider<AdsService>.value(value: ads),
+        Provider<SoundService>.value(value: sound),
       ],
       child: const PolaridadeApp(),
     ),
