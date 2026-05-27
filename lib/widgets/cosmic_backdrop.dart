@@ -65,7 +65,7 @@ class _NebulaPainter extends CustomPainter {
   void _paintRadial(Canvas canvas, Offset center, double radius, Color color) {
     final paint = Paint()
       ..shader = RadialGradient(
-        colors: [color, color.withValues(alpha: 0.0)],
+        colors: [color, color.withOpacity(0.0)],
       ).createShader(Rect.fromCircle(center: center, radius: radius))
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30);
     canvas.drawCircle(center, radius, paint);
@@ -102,7 +102,7 @@ class _StarsPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (final star in _stars) {
       final paint = Paint()
-        ..color = star.color.withValues(alpha: 0.8)
+        ..color = star.color.withOpacity(0.8)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6);
       canvas.drawCircle(
         Offset(star.dx * size.width, star.dy * size.height),

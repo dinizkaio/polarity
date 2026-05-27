@@ -207,12 +207,12 @@ class _PolarityButton extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: RadialGradient(
-              colors: [color.withValues(alpha: 0.55), color.withValues(alpha: 0.18)],
+              colors: [color.withOpacity(0.55), color.withOpacity(0.18)],
             ),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
+            border: Border.all(color: color.withOpacity(0.6), width: 1.5),
             boxShadow: enabled
-                ? [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 18, spreadRadius: -4)]
+                ? [BoxShadow(color: color.withOpacity(0.35), blurRadius: 18, spreadRadius: -4)]
                 : null,
           ),
           child: Material(
@@ -400,13 +400,13 @@ class _MiniPolarityChip extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: selected
               ? LinearGradient(
-                  colors: [color.withValues(alpha: 0.7), color.withValues(alpha: 0.3)],
+                  colors: [color.withOpacity(0.7), color.withOpacity(0.3)],
                 )
               : null,
-          color: selected ? null : Colors.white.withValues(alpha: 0.04),
+          color: selected ? null : Colors.white.withOpacity(0.04),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? color : color.withValues(alpha: 0.3),
+            color: selected ? color : color.withOpacity(0.3),
             width: selected ? 2 : 1,
           ),
         ),
@@ -445,7 +445,7 @@ class _ConfirmButton extends StatelessWidget {
           gradient: AppColors.primaryButtonGradient,
           borderRadius: BorderRadius.circular(999),
           boxShadow: [
-            BoxShadow(color: AppColors.haloPlus.withValues(alpha: 0.4), blurRadius: 12),
+            BoxShadow(color: AppColors.haloPlus.withOpacity(0.4), blurRadius: 12),
           ],
         ),
         child: Material(
@@ -481,7 +481,7 @@ class _CancelButton extends StatelessWidget {
       height: 44,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: AppColors.line),
         ),

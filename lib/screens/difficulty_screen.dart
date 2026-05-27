@@ -145,7 +145,7 @@ class _TurnsSelector extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: Colors.white.withOpacity(0.04),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
@@ -160,8 +160,8 @@ class _TurnsSelector extends StatelessWidget {
                       gradient: isSelected
                           ? LinearGradient(
                               colors: [
-                                AppColors.haloPlus.withValues(alpha: 0.6),
-                                AppColors.haloPlus.withValues(alpha: 0.3),
+                                AppColors.haloPlus.withOpacity(0.6),
+                                AppColors.haloPlus.withOpacity(0.3),
                               ],
                             )
                           : null,
@@ -207,10 +207,10 @@ class _LevelCard extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [accent.withValues(alpha: 0.25), accent.withValues(alpha: 0.08)],
+            colors: [accent.withOpacity(0.25), accent.withOpacity(0.08)],
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: accent.withValues(alpha: 0.3)),
+          border: Border.all(color: accent.withOpacity(0.3)),
         ),
         child: Row(
           children: [
@@ -220,10 +220,10 @@ class _LevelCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [accent, accent.withValues(alpha: 0.3)],
+                  colors: [accent, accent.withOpacity(0.3)],
                 ),
                 boxShadow: [
-                  BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 16),
+                  BoxShadow(color: accent.withOpacity(0.5), blurRadius: 16),
                 ],
               ),
               child: Center(

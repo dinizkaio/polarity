@@ -75,8 +75,8 @@ class PieceWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _haloColor.withValues(alpha: 0.8),
-                    _haloColor.withValues(alpha: 0.0),
+                    _haloColor.withOpacity(0.8),
+                    _haloColor.withOpacity(0.0),
                   ],
                   stops: const [0.0, 0.6],
                 ),
@@ -117,8 +117,8 @@ class PieceWidget extends StatelessWidget {
                   center: const Alignment(-0.4, -0.5),
                   radius: 0.5,
                   colors: [
-                    Colors.white.withValues(alpha: 0.45),
-                    Colors.white.withValues(alpha: 0.0),
+                    Colors.white.withOpacity(0.45),
+                    Colors.white.withOpacity(0.0),
                   ],
                 ),
               ),
@@ -160,8 +160,8 @@ class PieceWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _haloColor.withValues(alpha: 0.4),
-                    _haloColor.withValues(alpha: 0.0),
+                    _haloColor.withOpacity(0.4),
+                    _haloColor.withOpacity(0.0),
                   ],
                   stops: const [0.0, 0.6],
                 ),
@@ -203,8 +203,8 @@ class PieceWidget extends StatelessWidget {
                     center: const Alignment(-0.4, -0.5),
                     radius: 0.5,
                     colors: [
-                      Colors.white.withValues(alpha: 0.35),
-                      Colors.white.withValues(alpha: 0.0),
+                      Colors.white.withOpacity(0.35),
+                      Colors.white.withOpacity(0.0),
                     ],
                   ),
                 ),
@@ -236,7 +236,7 @@ class PieceWidget extends StatelessWidget {
         decoration: BoxDecoration(
           shape: shape,
           borderRadius: borderRadius,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.5),
+          border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
         ),
         child: Padding(
           padding: EdgeInsets.all(pieceSize * 0.045),
@@ -245,7 +245,7 @@ class PieceWidget extends StatelessWidget {
               shape: shape,
               borderRadius: borderRadius,
               border: Border.all(
-                color: const Color(0xFF0A2530).withValues(alpha: 0.6),
+                color: const Color(0xFF0A2530).withOpacity(0.6),
                 width: 2,
               ),
             ),

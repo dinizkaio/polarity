@@ -133,7 +133,7 @@ class _Section extends StatelessWidget {
           ),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
+              color: Colors.white.withOpacity(0.04),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.line),
             ),
@@ -185,7 +185,7 @@ class _SegmentTile extends StatelessWidget {
           ),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: Colors.white.withOpacity(0.06),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
@@ -197,7 +197,7 @@ class _SegmentTile extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSel ? AppColors.haloMinus.withValues(alpha: 0.4) : Colors.transparent,
+                      color: isSel ? AppColors.haloMinus.withOpacity(0.4) : Colors.transparent,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -401,7 +401,7 @@ class _PreviewModeTile extends StatelessWidget {
           ),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: Colors.white.withOpacity(0.06),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
@@ -413,7 +413,7 @@ class _PreviewModeTile extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSel ? AppColors.haloMinus.withValues(alpha: 0.4) : Colors.transparent,
+                      color: isSel ? AppColors.haloMinus.withOpacity(0.4) : Colors.transparent,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(

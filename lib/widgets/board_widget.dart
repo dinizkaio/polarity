@@ -375,7 +375,7 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
                       borderRadius: BorderRadius.circular(999),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.haloPlus.withValues(alpha: 0.5),
+                          color: AppColors.haloPlus.withOpacity(0.5),
                           blurRadius: 18,
                         ),
                       ],
@@ -407,11 +407,11 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
     final isEpicenter = _epicenter?.row == row && _epicenter?.col == col;
     final piece = pieceToShow;
 
-    Color cellBg = Colors.white.withValues(alpha: 0.025);
+    Color cellBg = Colors.white.withOpacity(0.025);
     BoxBorder? border;
     if (isTargetable) {
-      cellBg = AppColors.haloMinus.withValues(alpha: 0.15);
-      border = Border.all(color: AppColors.haloMinus.withValues(alpha: 0.6), width: 1.5);
+      cellBg = AppColors.haloMinus.withOpacity(0.15);
+      border = Border.all(color: AppColors.haloMinus.withOpacity(0.6), width: 1.5);
     }
 
     return GestureDetector(
@@ -481,7 +481,7 @@ class _ForceLinePainter extends CustomPainter {
 
     final paint = Paint()
       ..shader = LinearGradient(
-        colors: [color.withValues(alpha: 0.0), color.withValues(alpha: 0.95)],
+        colors: [color.withOpacity(0.0), color.withOpacity(0.95)],
       ).createShader(Rect.fromPoints(from, to))
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round
@@ -492,7 +492,7 @@ class _ForceLinePainter extends CustomPainter {
       to,
       cellSize * 0.18,
       Paint()
-        ..color = color.withValues(alpha: 0.35)
+        ..color = color.withOpacity(0.35)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
     );
   }
@@ -552,7 +552,7 @@ class _LineFlashPainter extends CustomPainter {
       canvas.drawRRect(
         rect,
         Paint()
-          ..color = color.withValues(alpha: 0.55 * intensity)
+          ..color = color.withOpacity(0.55 * intensity)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
     }
@@ -605,7 +605,7 @@ class _RecyclePainter extends CustomPainter {
       Offset(cx, cy - rise),
       cellSize * 0.35 * (1 + progress * 0.3),
       Paint()
-        ..color = color.withValues(alpha: 0.6 * alpha)
+        ..color = color.withOpacity(0.6 * alpha)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
@@ -621,7 +621,7 @@ class _RecyclePainter extends CustomPainter {
         Offset(px, py),
         cellSize * 0.04 * alpha,
         Paint()
-          ..color = color.withValues(alpha: 0.8 * alpha)
+          ..color = color.withOpacity(0.8 * alpha)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
       );
     }
@@ -668,7 +668,7 @@ class _PreviewOverlayPainter extends CustomPainter {
         canvas.drawRRect(
           rect,
           Paint()
-            ..color = color.withValues(alpha: 0.35)
+            ..color = color.withOpacity(0.35)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
         );
       }
@@ -701,7 +701,7 @@ class _PreviewOverlayPainter extends CustomPainter {
 
   void _drawArrow(Canvas canvas, Offset from, Offset to, Color color) {
     final paint = Paint()
-      ..color = color.withValues(alpha: 0.9)
+      ..color = color.withOpacity(0.9)
       ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2);
@@ -724,7 +724,7 @@ class _PreviewOverlayPainter extends CustomPainter {
       ..lineTo(left.dx, left.dy)
       ..lineTo(right.dx, right.dy)
       ..close();
-    canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.95));
+    canvas.drawPath(path, Paint()..color = color.withOpacity(0.95));
   }
 
   @override
@@ -759,11 +759,11 @@ class _PreviewToast extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.bgVoid.withValues(alpha: 0.85),
+        color: AppColors.bgVoid.withOpacity(0.85),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.haloMinus.withValues(alpha: 0.6), width: 1),
+        border: Border.all(color: AppColors.haloMinus.withOpacity(0.6), width: 1),
         boxShadow: [
-          BoxShadow(color: AppColors.haloMinus.withValues(alpha: 0.3), blurRadius: 12),
+          BoxShadow(color: AppColors.haloMinus.withOpacity(0.3), blurRadius: 12),
         ],
       ),
       child: Text(

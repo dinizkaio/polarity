@@ -125,7 +125,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
                         decoration: BoxDecoration(
                           color: filled
                               ? AppColors.haloMinus
-                              : Colors.white.withValues(alpha: 0.1),
+                              : Colors.white.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -221,9 +221,9 @@ class _TutorialScreenState extends State<TutorialScreen> {
         height: 56,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: AppColors.haloPlus.withValues(alpha: 0.5), width: 1.5),
+          border: Border.all(color: AppColors.haloPlus.withOpacity(0.5), width: 1.5),
           boxShadow: [
-            BoxShadow(color: AppColors.haloPlus.withValues(alpha: 0.3), blurRadius: 16),
+            BoxShadow(color: AppColors.haloPlus.withOpacity(0.3), blurRadius: 16),
           ],
         ),
         child: Row(
@@ -239,7 +239,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
                   colors: [Color(0xFFFFFEF5), Color(0xFFFFEBC2), Color(0xFFE8C988)],
                 ),
                 boxShadow: [
-                  BoxShadow(color: AppColors.haloPlus.withValues(alpha: 0.6), blurRadius: 8),
+                  BoxShadow(color: AppColors.haloPlus.withOpacity(0.6), blurRadius: 8),
                 ],
               ),
               child: Center(
@@ -264,8 +264,8 @@ class _TutorialScreenState extends State<TutorialScreen> {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  AppColors.haloPlus.withValues(alpha: 0.6),
-                  AppColors.haloPlus.withValues(alpha: 0.0),
+                  AppColors.haloPlus.withOpacity(0.6),
+                  AppColors.haloPlus.withOpacity(0.0),
                 ],
               ),
             ),
@@ -307,7 +307,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
           const SizedBox(width: 16),
           Icon(Icons.add, color: AppColors.haloPlus, size: 28),
           const SizedBox(width: 8),
-          _IllustrationDot(symbol: '⊕', color: AppColors.haloPlus.withValues(alpha: 0.5)),
+          _IllustrationDot(symbol: '⊕', color: AppColors.haloPlus.withOpacity(0.5)),
         ],
       );
 
@@ -318,8 +318,8 @@ class _TutorialScreenState extends State<TutorialScreen> {
           shape: BoxShape.circle,
           gradient: RadialGradient(
             colors: [
-              AppColors.haloPlus.withValues(alpha: 0.9),
-              AppColors.haloPlus.withValues(alpha: 0.0),
+              AppColors.haloPlus.withOpacity(0.9),
+              AppColors.haloPlus.withOpacity(0.0),
             ],
           ),
         ),
@@ -354,7 +354,7 @@ class _IllustrationDot extends StatelessWidget {
         shape: BoxShape.circle,
         color: color,
         boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 24),
+          BoxShadow(color: color.withOpacity(0.5), blurRadius: 24),
         ],
       ),
       child: Center(

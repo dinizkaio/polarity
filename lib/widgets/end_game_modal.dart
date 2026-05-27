@@ -75,7 +75,7 @@ class EndGameModal extends StatelessWidget {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
       child: Container(
-        color: Colors.black.withValues(alpha: 0.7),
+        color: Colors.black.withOpacity(0.7),
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -90,7 +90,7 @@ class EndGameModal extends StatelessWidget {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.haloMinus.withValues(alpha: 0.2),
+                    color: AppColors.haloMinus.withOpacity(0.2),
                     blurRadius: 120,
                     spreadRadius: -20,
                   ),
@@ -185,7 +185,7 @@ class PauseModal extends StatelessWidget {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
       child: Container(
-        color: Colors.black.withValues(alpha: 0.7),
+        color: Colors.black.withOpacity(0.7),
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

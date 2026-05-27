@@ -34,7 +34,7 @@ class PrimaryButton extends StatelessWidget {
               ? null
               : [
                   BoxShadow(
-                    color: AppColors.haloPlus.withValues(alpha: 0.4),
+                    color: AppColors.haloPlus.withOpacity(0.4),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
@@ -82,7 +82,7 @@ class GhostButton extends StatelessWidget {
       height: 56,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
+          color: Colors.white.withOpacity(0.06),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: AppColors.line),
         ),
