@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -13,29 +14,34 @@ import 'services/purchases_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  // Portrait lock só faz sentido em mobile. Na web/desktop ignora.
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
 
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF06061A),
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Color(0xFF06061A),
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+  }
 
   await Hive.initFlutter();
 
   final settings = SettingsProvider();
   await settings.init();
 
+  // PurchasesService e AdsService usam conditional imports — em web,
+  // resolvidos como stubs no-op.
   final purchases = PurchasesService();
   await purchases.init();
 
   final ads = AdsService(purchases);
-  // Ads inicializa em background — não bloqueia o startup
+  // Ads inicializa em background — não bloqueia o startup (no-op em web)
   unawaited(ads.init());
 
   runApp(

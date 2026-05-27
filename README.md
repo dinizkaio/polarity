@@ -2,7 +2,13 @@
 
 > Atração, repulsão, vitória — jogo de tabuleiro abstrato com peças magnetizadas.
 
-5×5, single-player vs IA (3 níveis), 1–3 min por partida. Flutter / Dart, com i18n PT/EN/ES.
+5×5, single-player vs IA (3 níveis) ou local 1×1, 1–3 min por partida. Flutter / Dart, com i18n PT/EN/ES.
+
+## 🎮 Jogue no browser
+
+**[dinizkaio.github.io/polarity](https://dinizkaio.github.io/polarity/)**
+
+Build automatizado via GitHub Actions a cada push em `main`. Versão web não tem AdMob nem IAP — só o jogo puro.
 
 ## v0.8.0 — diferenças em relação ao briefing original
 

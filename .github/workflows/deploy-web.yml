@@ -1,0 +1,71 @@
+name: Deploy Flutter Web to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Permite uma execução por vez; cancela em andamento em favor da nova
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.24.0'
+          cache: true
+
+      - name: Gerar plataforma web
+        # `flutter create` adiciona android/, ios/, web/ etc. mas preserva
+        # arquivos existentes (lib/, pubspec.yaml). Só geramos web aqui.
+        run: |
+          flutter create . \
+            --platforms=web \
+            --project-name polaridade \
+            --org app.polaridade \
+            --description "Polaridade — Atração, repulsão, vitória."
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Build web (release)
+        # base-href precisa bater com o path do site Pages (/polarity/).
+        # Se você mudar o nome do repo, atualizar aqui.
+        run: |
+          flutter build web \
+            --release \
+            --base-href "/polarity/" \
+            --no-tree-shake-icons
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
