@@ -105,7 +105,7 @@ class PieceWidget extends StatelessWidget {
                   ),
               ],
             ),
-            child: piece.owner == PieceOwner.ai ? _aiInnerRing(pieceSize) : null,
+            child: piece.owner == PieceOwner.ai ? _aiInnerRing(pieceSize, BoxShape.circle) : null,
           ),
           IgnorePointer(
             child: Container(
@@ -168,8 +168,8 @@ class PieceWidget extends StatelessWidget {
               ),
             ),
           ),
-          // Corpo: diamante (rotated square). Sem anel duplo interno —
-          // a forma diferente + cor do dono já distinguem suficientemente.
+          // Corpo: diamante (rotated square). Anel duplo interno mantido na
+          // IA pra acessibilidade (distingue dono mesmo em b/w / daltônicos).
           Transform.rotate(
             angle: 0.785398, // 45° em radianos
             child: Container(
@@ -186,6 +186,9 @@ class PieceWidget extends StatelessWidget {
                   ),
                 ],
               ),
+              child: piece.owner == PieceOwner.ai
+                  ? _aiInnerRing(diamondSide, BoxShape.rectangle)
+                  : null,
             ),
           ),
           // Highlight especular (sutil, rotacionado também)
@@ -215,21 +218,27 @@ class PieceWidget extends StatelessWidget {
     );
   }
 
-  /// Anel duplo interno — vetor de acessibilidade pra peças ⊕/⊖ da IA.
-  /// Distingue dono mesmo em b/w. Não usado nas neutras (forma já distingue).
-  Widget _aiInnerRing(double pieceSize) {
+  /// Anel duplo interno — vetor de acessibilidade pra peças da IA.
+  /// Distingue dono mesmo em b/w (importante pra daltônicos).
+  /// Aceita forma: círculo pra ⊕/⊖, retângulo arredondado pra neutra (diamante).
+  Widget _aiInnerRing(double pieceSize, BoxShape shape) {
+    final borderRadius = shape == BoxShape.rectangle
+        ? BorderRadius.circular(pieceSize * 0.12)
+        : null;
     return Padding(
       padding: EdgeInsets.all(pieceSize * 0.08),
       child: Container(
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
+          shape: shape,
+          borderRadius: borderRadius,
           border: Border.all(color: Colors.white.withOpacity(0.7), width: 1.5),
         ),
         child: Padding(
           padding: EdgeInsets.all(pieceSize * 0.045),
           child: Container(
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              shape: shape,
+              borderRadius: borderRadius,
               border: Border.all(
                 color: const Color(0xFF0A2530).withOpacity(0.6),
                 width: 2,
