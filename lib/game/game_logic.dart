@@ -389,6 +389,15 @@ class GameLogic {
     }
   }
 
+  /// Retorna as células da linha [lineIdx]. Indexação:
+  /// - 0..4: linhas horizontais (length 5)
+  /// - 5..9: colunas (length 5)
+  /// - 10..14: diagonais NW-SE (length 5, 4, 3, 4, 3)
+  ///   10=(0,0)→(4,4) · 11=(0,1)→(3,4) · 12=(0,2)→(2,4)
+  ///   13=(1,0)→(4,3) · 14=(2,0)→(4,2)
+  /// - 15..19: diagonais NE-SW (length 5, 4, 3, 4, 3)
+  ///   15=(0,4)→(4,0) · 16=(0,3)→(3,0) · 17=(0,2)→(2,0)
+  ///   18=(1,4)→(4,1) · 19=(2,4)→(4,2)
   static List<Cell> _lineCells(int lineIdx) {
     final n = GameState.boardSize;
     if (lineIdx < 5) {
@@ -397,10 +406,31 @@ class GameLogic {
     } else if (lineIdx < 10) {
       final col = lineIdx - 5;
       return [for (int r = 0; r < n; r++) Cell(r, col)];
-    } else if (lineIdx == 10) {
-      return [for (int i = 0; i < n; i++) Cell(i, i)];
-    } else {
-      return [for (int i = 0; i < n; i++) Cell(i, n - 1 - i)];
+    }
+    // Diagonais NW-SE (paralelas à principal, dr=1, dc=1)
+    switch (lineIdx) {
+      case 10: // principal
+        return [for (int i = 0; i < 5; i++) Cell(i, i)];
+      case 11: // shift +1 col
+        return [for (int i = 0; i < 4; i++) Cell(i, i + 1)];
+      case 12: // shift +2 col
+        return [for (int i = 0; i < 3; i++) Cell(i, i + 2)];
+      case 13: // shift +1 row
+        return [for (int i = 0; i < 4; i++) Cell(i + 1, i)];
+      case 14: // shift +2 row
+        return [for (int i = 0; i < 3; i++) Cell(i + 2, i)];
+      case 15: // antidiagonal (NE-SW)
+        return [for (int i = 0; i < 5; i++) Cell(i, n - 1 - i)];
+      case 16: // (0,3)→(3,0)
+        return [for (int i = 0; i < 4; i++) Cell(i, 3 - i)];
+      case 17: // (0,2)→(2,0)
+        return [for (int i = 0; i < 3; i++) Cell(i, 2 - i)];
+      case 18: // (1,4)→(4,1)
+        return [for (int i = 0; i < 4; i++) Cell(i + 1, n - 1 - i)];
+      case 19: // (2,4)→(4,2)
+        return [for (int i = 0; i < 3; i++) Cell(i + 2, n - 1 - i)];
+      default:
+        throw ArgumentError('lineIdx fora do range 0..${GameState.totalLines - 1}: $lineIdx');
     }
   }
 

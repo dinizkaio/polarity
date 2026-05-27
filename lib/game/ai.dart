@@ -161,6 +161,8 @@ class AiEngine {
     }
   }
 
+  /// Espelha GameLogic._lineCells — 20 linhas pontuáveis no tabuleiro 5x5
+  /// (5 horizontais + 5 colunas + 5 diagonais NW-SE + 5 diagonais NE-SW).
   static List<Cell> _lineCells(int lineIdx) {
     final n = GameState.boardSize;
     if (lineIdx < 5) {
@@ -169,10 +171,30 @@ class AiEngine {
     } else if (lineIdx < 10) {
       final col = lineIdx - 5;
       return [for (int r = 0; r < n; r++) Cell(r, col)];
-    } else if (lineIdx == 10) {
-      return [for (int i = 0; i < n; i++) Cell(i, i)];
-    } else {
-      return [for (int i = 0; i < n; i++) Cell(i, n - 1 - i)];
+    }
+    switch (lineIdx) {
+      case 10:
+        return [for (int i = 0; i < 5; i++) Cell(i, i)];
+      case 11:
+        return [for (int i = 0; i < 4; i++) Cell(i, i + 1)];
+      case 12:
+        return [for (int i = 0; i < 3; i++) Cell(i, i + 2)];
+      case 13:
+        return [for (int i = 0; i < 4; i++) Cell(i + 1, i)];
+      case 14:
+        return [for (int i = 0; i < 3; i++) Cell(i + 2, i)];
+      case 15:
+        return [for (int i = 0; i < 5; i++) Cell(i, n - 1 - i)];
+      case 16:
+        return [for (int i = 0; i < 4; i++) Cell(i, 3 - i)];
+      case 17:
+        return [for (int i = 0; i < 3; i++) Cell(i, 2 - i)];
+      case 18:
+        return [for (int i = 0; i < 4; i++) Cell(i + 1, n - 1 - i)];
+      case 19:
+        return [for (int i = 0; i < 3; i++) Cell(i + 2, n - 1 - i)];
+      default:
+        return const [];
     }
   }
 
