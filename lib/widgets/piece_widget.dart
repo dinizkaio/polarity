@@ -9,10 +9,10 @@ import '../theme/app_typography.dart';
 /// **Peças ⊕/⊖**: discos circulares. 4 camadas — halo (cor da polaridade),
 /// corpo (cor do dono), highlight especular, símbolo.
 ///
-/// **Peças neutras (○)**: forma DIAMANTE (quadrado rotacionado 45°) pra ser
-/// visualmente óbvio que não é ⊕/⊖. Mantém a cor de corpo do dono (player
-/// branco-quente, IA ciano-frio) pra identidade. Símbolo central ⬢
-/// (hexágono) também diferente de ⊕/⊖. Halo cinza neutro.
+/// **Peças neutras**: forma DIAMANTE (quadrado rotacionado 45°) sem símbolo
+/// central — a forma diferente de ⊕/⊖ (que são círculos) já é suficiente
+/// pra distinguir. Mantém cor de corpo do dono (player branco-quente, IA
+/// ciano-frio) pra identidade. Halo cinza neutro.
 ///
 /// **IA**: anel duplo interno (vetor de acessibilidade — distingue dono
 /// mesmo em b/w).
@@ -211,14 +211,7 @@ class PieceWidget extends StatelessWidget {
               ),
             ),
           ),
-          // Símbolo: hexágono ⬢ (não rotacionado, pra leitura natural)
-          Text(
-            '⬢',
-            style: AppTypography.pieceSymbol(
-              color: _symbolColor,
-              size: pieceSize * 0.42,
-            ),
-          ),
+          // Neutra não tem símbolo central — a forma diamante já distingue.
         ],
       ),
     );

@@ -9,7 +9,13 @@ class GameState {
   static const int defaultMaxTurns = 20;
   static const int stalemateThreshold = 4;
   static const int winningPoints = 15;
-  static const int totalLines = 12; // 5 rows + 5 cols + 2 diagonals
+  /// 20 linhas pontuáveis:
+  /// - 5 linhas horizontais (length 5)
+  /// - 5 colunas (length 5)
+  /// - 5 diagonais NW-SE (length 5, 4, 4, 3, 3) — incluindo principal
+  /// - 5 diagonais NE-SW (length 5, 4, 4, 3, 3) — incluindo antiprincipal
+  /// Todas com ≥ 3 células (3-em-linha é o menor padrão pontuável).
+  static const int totalLines = 20;
 
   /// board[row][col] — nullable. row 0 é topo.
   final List<List<Piece?>> board;
