@@ -248,31 +248,19 @@ class GameLogic {
     PieceOwner? winner;
     bool gameEnded = false;
 
-    final playerPts = points[PieceOwner.player] ?? 0;
-    final aiPts = points[PieceOwner.ai] ?? 0;
     final bothStocksZero = (stock[PieceOwner.player] ?? 0) == 0 &&
         (stock[PieceOwner.ai] ?? 0) == 0;
 
-    if (playerPts >= GameState.winningPoints && playerPts > aiPts) {
-      winner = PieceOwner.player;
-      gameEnded = true;
-    } else if (aiPts >= GameState.winningPoints && aiPts > playerPts) {
-      winner = PieceOwner.ai;
-      gameEnded = true;
-    } else if (playerPts >= GameState.winningPoints && aiPts >= GameState.winningPoints) {
-      winner = playerPts > aiPts ? PieceOwner.player : (aiPts > playerPts ? PieceOwner.ai : null);
-      gameEnded = true;
-    } else if (bothStocksZero) {
-      // Fim ÚNICO por exaustão: AMBOS jogadores zeraram estoque.
-      // Não importa quantas peças cada um tem no tabuleiro nem turnos restantes.
-      // Quem ainda tem peças mas não estoque pode continuar flippando enquanto
-      // o outro tiver estoque pra colocar.
+    if (bothStocksZero) {
+      // Fim por exaustão: ambos jogadores zeraram estoque.
       gameEnded = true;
       winner = _decideWinnerByPoints(points, onBoard);
     } else if (actionsTaken >= state.maxActions) {
+      // Turnos máximos atingidos
       gameEnded = true;
       winner = _decideWinnerByPoints(points, onBoard);
     } else if (newEmptyCount >= GameState.stalemateThreshold) {
+      // Stalemate por inércia (4 flips vazios)
       gameEnded = true;
       winner = _decideWinnerByPoints(points, onBoard);
     }
