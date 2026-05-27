@@ -44,7 +44,7 @@ const Map<String, String> esStrings = {
   'gamePolarityNegative': 'Negativo',
   'gamePolarityNeutral': 'Neutra',
   'tutorialNeutralTitle': 'Piezas neutras',
-  'tutorialNeutralBody': 'Cada jugador puede tener hasta 2 piezas neutras (○) en el tablero al mismo tiempo. Las neutras son inmunes a la atracción y la repulsión — funcionan como barreras fijas. Puedes cambiar una pieza tuya entre ⊕/⊖/○ en cualquier momento, siempre que el límite de 2 neutras se respete.',
+  'tutorialNeutralBody': 'Cada jugador puede tener hasta 2 piezas neutras (⬢) en el tablero al mismo tiempo. Las neutras son inmunes a la atracción y la repulsión — funcionan como barreras fijas. Puedes cambiar una pieza tuya entre ⊕/⊖/⬢ en cualquier momento, siempre que el límite de 2 neutras se respete.',
   'previewLabel': 'PREVIA',
   'previewNoEffect': 'sin efecto',
   'previewOppGains': 'oponente: +{n}',

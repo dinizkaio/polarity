@@ -44,7 +44,7 @@ const Map<String, String> enStrings = {
   'gamePolarityNegative': 'Negative',
   'gamePolarityNeutral': 'Neutral',
   'tutorialNeutralTitle': 'Neutral pieces',
-  'tutorialNeutralBody': 'Each player can have up to 2 neutral pieces (○) on the board at once. Neutrals are immune to attraction and repulsion — they act as fixed barriers. You can switch one of your pieces between ⊕/⊖/○ at any time, as long as the 2-neutral cap is respected.',
+  'tutorialNeutralBody': 'Each player can have up to 2 neutral pieces (⬢) on the board at once. Neutrals are immune to attraction and repulsion — they act as fixed barriers. You can switch one of your pieces between ⊕/⊖/⬢ at any time, as long as the 2-neutral cap is respected.',
   'previewLabel': 'PREVIEW',
   'previewNoEffect': 'no effect',
   'previewOppGains': 'opponent: +{n}',

@@ -179,7 +179,7 @@ class _PolarityChooser extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _PolarityButton(
-                symbol: '○',
+                symbol: '⬢',
                 color: AppColors.ink2,
                 onTap: canPlaceNeutral ? onNeutral : null,
               ),
@@ -287,7 +287,7 @@ class _FlipChooser extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _PolarityButton(
-                symbol: '○',
+                symbol: '⬢',
                 color: AppColors.ink2,
                 onTap: (current == Polarity.neutral || !canPickNeutral)
                     ? null
@@ -351,7 +351,7 @@ class _PreviewActions extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: _MiniPolarityChip(
-                symbol: '○',
+                symbol: '⬢',
                 color: AppColors.ink2,
                 selected: currentPolarity == Polarity.neutral,
                 onTap: (currentPolarity == Polarity.neutral || !canPickNeutral)

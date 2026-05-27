@@ -1,7 +1,7 @@
 name: polaridade
 description: "Polaridade — Atração, repulsão, vitória. Jogo de tabuleiro abstrato 5×5 vs IA."
 publish_to: 'none'
-version: 0.8.2+10
+version: 0.9.0+11
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -24,6 +24,9 @@ dependencies:
   # Fontes
   google_fonts: ^6.2.1
 
+  # Áudio (cross-platform: mobile + web + desktop)
+  audioplayers: ^6.1.0
+
   # Monetização — descomentar quando AdMob estiver configurado
   # (precisa dos app IDs no AndroidManifest.xml e Info.plist primeiro)
   google_mobile_ads: ^5.1.0
@@ -42,3 +45,4 @@ flutter:
   # Os .arb na pasta l10n/ ficam como documentação/referência de design.
   assets:
     - assets/images/
+    - assets/audio/

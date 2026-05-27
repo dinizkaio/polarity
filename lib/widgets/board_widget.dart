@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../models/game_state.dart';
 import '../models/piece.dart';
 import '../providers/game_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/sound_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import '../utils/haptics_helper.dart';
@@ -101,14 +103,17 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
   }
 
   Future<void> _animateEvent(AnimationEvent event, double mult, SettingsProvider settings) async {
+    final sound = context.read<SoundService>();
     switch (event) {
       case PlaceEvent(:final at, :final piece):
         HapticsHelper.medium(settings);
+        unawaited(sound.play(Sfx.place));
         setState(() => _displayBoard[at.row][at.col] = piece);
         await _wait((400 * mult).round());
 
       case FlipEvent(:final at, :final piece):
         HapticsHelper.selection(settings);
+        unawaited(sound.play(Sfx.flip));
         setState(() => _displayBoard[at.row][at.col] = piece);
         await _wait((450 * mult).round());
 
@@ -117,11 +122,13 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
         await _wait((150 * mult).round());
 
       case ForceEvent():
+        unawaited(sound.play(event.kind == ForceKind.attract ? Sfx.attract : Sfx.repel));
         setState(() => _currentForce = event);
         await _wait((220 * mult).round());
         setState(() => _currentForce = null);
 
       case MoveEvent(:final from, :final to, :final piece):
+        unawaited(sound.play(Sfx.move));
         setState(() {
           _displayBoard[from.row][from.col] = null;
           _displayBoard[to.row][to.col] = piece;
@@ -130,6 +137,7 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
 
       case SwapEvent(:final cellA, :final cellB, :final pieceA, :final pieceB):
         HapticsHelper.medium(settings);
+        unawaited(sound.play(Sfx.move));
         setState(() {
           _displayBoard[cellA.row][cellA.col] = pieceB;
           _displayBoard[cellB.row][cellB.col] = pieceA;
@@ -138,12 +146,14 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
 
       case DestroyEvent(:final from, :final piece):
         HapticsHelper.heavy(settings);
+        unawaited(sound.play(Sfx.destroy));
         _spawnRecycle(from, _haloColor(piece));
         setState(() => _displayBoard[from.row][from.col] = null);
         await _wait((500 * mult).round());
 
       case LineCompletedEvent():
         HapticsHelper.heavy(settings);
+        unawaited(sound.play(Sfx.line));
         _spawnLineFlash(event);
         if (event.recycled) {
           for (final cell in event.cells) {
@@ -409,6 +419,7 @@ class _BoardWidgetState extends State<BoardWidget> with TickerProviderStateMixin
           ? null
           : () {
               HapticsHelper.selection(settings);
+              unawaited(context.read<SoundService>().play(Sfx.tap));
               game.tapCell(row, col);
             },
       child: AnimatedContainer(
