@@ -8,7 +8,6 @@ class GameState {
   static const int stockSize = 10;
   static const int defaultMaxTurns = 20;
   static const int stalemateThreshold = 4;
-  static const int winningPoints = 15;
   /// 20 linhas pontuáveis:
   /// - 5 linhas horizontais (length 5)
   /// - 5 colunas (length 5)
