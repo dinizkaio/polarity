@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/settings_provider.dart';
 import 'screens/splash_screen.dart';
+import 'services/music_service.dart';
 import 'theme/app_theme.dart';
 
 class PolaridadeApp extends StatelessWidget {
@@ -30,6 +31,19 @@ class PolaridadeApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      // Listener no root captura o PRIMEIRO toque/click do usuário e
+      // inicia a música. Contorna autoplay block do browser (web não toca
+      // áudio sem interação prévia). Mobile não tem esse bloqueio mas o
+      // listener é idempotente — startIfNeeded() só dispara uma vez.
+      builder: (context, child) {
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) {
+            context.read<MusicService>().startIfNeeded();
+          },
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const SplashScreen(),
     );
   }
