@@ -15,18 +15,24 @@ import '../providers/settings_provider.dart';
 ///
 /// Respeita o toggle `sound` em SettingsProvider. Quando desligado, pausa.
 class MusicService {
-  /// Playlist do álbum Polaridade. Ordem definida pela dinâmica do jogo —
-  /// abertura, repulsão, padrões, estoque/stalemate, previews, neutras,
-  /// wrap, IA mestre.
+  /// Polaridade OST — álbum de 10 faixas. Abertura instrumental + 3
+  /// sessões temáticas: PT (cálculo/movimento), EN (máquina/lógica),
+  /// ES (defesa/ataque). Faixas faltantes são puladas silenciosamente.
   static const List<String> tracks = [
-    'music/01_kinetic_core.mp3',           // EN · Glitch IDM / Downtempo (105 BPM) — Abertura de jogo
-    'music/02_fuerza_inversa.mp3',         // ES · Dark Synth / Trip-Hop (98 BPM) — Guerra de repulsão
-    'music/03_linhas_de_forca.mp3',        // PT · Neo-Space / Progressive (115 BPM) — Construção de padrões
-    'music/04_cero_absoluto.mp3',          // Trilíngue · Microhouse / Minimal (120 BPM) — Fim de estoque / Stalemate
-    'music/05_vector_field.mp3',           // EN · Ambient DnB / Liquid Funk (165 BPM) — Previews e cálculo
-    'music/06_enlace_neutro.mp3',          // ES · Dub Techno / Deep House (118 BPM) — Peças neutras
-    'music/07_dobra_toroidal.mp3',         // PT · Electro / Breakbeat (126 BPM) — Wrap nas bordas
-    'music/08_alpha_beta.mp3',             // Trilíngue · IDM Complexo / Glitch (132 BPM) — IA Mestre
+    // Abertura
+    'music/01_five_stones_aligned.mp3',    // Instrumental · Orquestral Cinemático + Glitch IDM — Menu / início
+    // Sessão 1 — PT · Cálculo e Movimento
+    'music/02_linhas_de_forca.mp3',        // PT · Neo-Space Ambient / Progressive — Preview de jogada
+    'music/03_dobra_toroidal.mp3',         // PT · Electro / Breakbeat — Atração orbital + wrap
+    'music/04_ponto_de_inercia.mp3',       // PT · Microhouse / Experimental — Stalemate / fim de estoque
+    // Sessão 2 — EN · Máquina e Lógica
+    'music/05_kinetic_core.mp3',           // EN · Glitch IDM / Downtempo — Atração e repulsão base
+    'music/06_vector_field.mp3',           // EN · Ambient DnB / Liquid Funk — Reações em cadeia e pontuação
+    'music/07_alpha_beta_mind.mp3',        // EN · IDM Complexo / Math Rock — Confronto vs IA Mestre
+    // Sessão 3 — ES · Defesa e Ataque
+    'music/08_fuerza_inversa.mp3',         // ES · Dark Synth / Trip-Hop Industrial — Repulsão tática
+    'music/09_enlace_neutro.mp3',          // ES · Dub Techno / Deep House Minimal — Peças neutras
+    'music/10_cinco_en_linea.mp3',         // ES · Glitch Hop / Synthwave Pesado — 5 em linha + roubo
   ];
 
   static const double _musicVolume = 0.35;
@@ -62,12 +68,20 @@ class MusicService {
     await _playCurrent();
   }
 
+  /// Tenta tocar a faixa atual. Se falhar (arquivo faltando, por exemplo —
+  /// nem todas as 10 faixas do álbum estão entregues), avança e tenta a
+  /// próxima. Para depois de uma volta completa pra evitar loop infinito
+  /// caso nenhuma faixa esteja disponível.
   Future<void> _playCurrent() async {
     if (tracks.isEmpty) return;
-    try {
-      await _player.play(AssetSource(tracks[_currentTrack]));
-    } catch (e) {
-      if (kDebugMode) debugPrint('Music falhou ${tracks[_currentTrack]}: $e');
+    for (var attempts = 0; attempts < tracks.length; attempts++) {
+      try {
+        await _player.play(AssetSource(tracks[_currentTrack]));
+        return;
+      } catch (e) {
+        if (kDebugMode) debugPrint('Music pulada ${tracks[_currentTrack]}: $e');
+        _currentTrack = (_currentTrack + 1) % tracks.length;
+      }
     }
   }
 
