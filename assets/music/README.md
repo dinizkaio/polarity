@@ -32,7 +32,7 @@ silenciosamente — dá pra ir entregando uma de cada vez.
 ## Status atual
 
 - [x] 1. five stones aligned
-- [ ] 2. Linhas de Força
+- [x] 2. Linhas de Força
 - [ ] 3. Dobra Toroidal
 - [ ] 4. Ponto de Inércia
 - [ ] 5. Kinetic Core
