@@ -17,19 +17,23 @@ import '../providers/settings_provider.dart';
 ///
 /// Respeita o toggle `sound` em SettingsProvider. Quando desligado, pausa.
 class MusicService {
-  /// Polaridade OST — álbum de 10 faixas. Nomes genéricos pra esconder
-  /// o conceito de cada uma; mapeamento conceitual ao lado.
+  /// Trilha sonora — 14 faixas em modo shuffle. Nomes de arquivo genéricos
+  /// (`01.mp3` … `14.mp3`); a ordem real é definida pelo embaralhador.
   static const List<String> tracks = [
-    'music/01.mp3',  // Instrumental · five stones aligned — Menu / início
-    'music/02.mp3',  // PT · Linhas de Força — Preview de jogada
-    'music/03.mp3',  // PT · Dobra Toroidal — Atração orbital + wrap
-    'music/04.mp3',  // PT · Ponto de Inércia — Stalemate / fim de estoque
-    'music/05.mp3',  // EN · Kinetic Core — Atração e repulsão base
-    'music/06.mp3',  // EN · Vector Field — Reações em cadeia e pontuação
-    'music/07.mp3',  // EN · Alpha-Beta Mind — Confronto vs IA Mestre
-    'music/08.mp3',  // ES · Fuerza Inversa — Repulsão tática
-    'music/09.mp3',  // ES · Enlace Neutro — Peças neutras
-    'music/10.mp3',  // ES · Cinco en Línea — 5 em linha + roubo
+    'music/01.mp3',
+    'music/02.mp3',
+    'music/03.mp3',
+    'music/04.mp3',
+    'music/05.mp3',
+    'music/06.mp3',
+    'music/07.mp3',
+    'music/08.mp3',
+    'music/09.mp3',
+    'music/10.mp3',
+    'music/11.mp3',
+    'music/12.mp3',
+    'music/13.mp3',
+    'music/14.mp3',
   ];
 
   static const double _musicVolume = 0.35;
