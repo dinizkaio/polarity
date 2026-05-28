@@ -37,7 +37,7 @@ um fica só na documentação, não no filesystem.
 - [x] 1. five stones aligned
 - [x] 2. Linhas de Força
 - [x] 3. Dobra Toroidal
-- [ ] 4. Ponto de Inércia
+- [x] 4. Ponto de Inércia
 - [ ] 5. Kinetic Core
 - [ ] 6. Vector Field
 - [ ] 7. Alpha-Beta Mind
