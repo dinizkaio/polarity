@@ -33,7 +33,7 @@ silenciosamente — dá pra ir entregando uma de cada vez.
 
 - [x] 1. five stones aligned
 - [x] 2. Linhas de Força
-- [ ] 3. Dobra Toroidal
+- [x] 3. Dobra Toroidal
 - [ ] 4. Ponto de Inércia
 - [ ] 5. Kinetic Core
 - [ ] 6. Vector Field
