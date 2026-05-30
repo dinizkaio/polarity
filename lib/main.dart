@@ -59,7 +59,7 @@ Future<void> main() async {
         ChangeNotifierProvider<PurchasesService>.value(value: purchases),
         Provider<AdsService>.value(value: ads),
         Provider<SoundService>.value(value: sound),
-        Provider<MusicService>.value(value: music),
+        ChangeNotifierProvider<MusicService>.value(value: music),
       ],
       child: const PolaridadeApp(),
     ),

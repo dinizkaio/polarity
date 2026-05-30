@@ -15,8 +15,12 @@ import '../providers/settings_provider.dart';
 /// — quem precisa começar é a primeira chamada de `startIfNeeded()`, que
 /// pode vir de qualquer evento do usuário (tap em célula, botão, etc).
 ///
+/// **Auto-advance**: usa `onPlayerStateChanged` em vez de `onPlayerComplete`
+/// porque o último é instável no web (HTMLMediaElement.ended nem sempre
+/// dispara). Detecta `PlayerState.completed` e avança.
+///
 /// Respeita o toggle `sound` em SettingsProvider. Quando desligado, pausa.
-class MusicService {
+class MusicService extends ChangeNotifier {
   /// Trilha sonora — 14 faixas em modo shuffle. Nomes de arquivo genéricos
   /// (`01.mp3` … `14.mp3`); a ordem real é definida pelo embaralhador.
   static const List<String> tracks = [
@@ -45,7 +49,10 @@ class MusicService {
   int _playIndex = 0;
   bool _started = false;
   bool _initialized = false;
-  StreamSubscription<void>? _completeSub;
+  bool _autoAdvanceArmed = false;
+  bool _userPaused = false;
+  PlayerState _lastState = PlayerState.stopped;
+  StreamSubscription<PlayerState>? _stateSub;
 
   MusicService(this._settings) {
     _settings.addListener(_onSettingsChanged);
@@ -60,7 +67,7 @@ class MusicService {
     _shuffleOrder();
     await _player.setReleaseMode(ReleaseMode.stop);
     await _player.setVolume(_musicVolume);
-    _completeSub = _player.onPlayerComplete.listen((_) => _playNext());
+    _stateSub = _player.onPlayerStateChanged.listen(_onPlayerStateChanged);
   }
 
   /// Embaralha a ordem de reprodução. Se [previousLast] for passado e cair
@@ -90,16 +97,55 @@ class MusicService {
     await _playCurrent();
   }
 
+  /// Pula manualmente pra próxima faixa do shuffle.
+  Future<void> skipToNext() async {
+    if (!_initialized || _playOrder.isEmpty) return;
+    _autoAdvanceArmed = false;
+    _userPaused = false;
+    if (!_started) {
+      _started = true;
+    }
+    _advanceIndex();
+    await _playCurrent();
+  }
+
+  /// Toggle manual de play/pause. Se ainda não começou, dispara o primeiro
+  /// `_playCurrent()` (atua como gesture inicial também).
+  Future<void> togglePlayPause() async {
+    if (!_initialized || _playOrder.isEmpty) return;
+    if (!_started) {
+      _started = true;
+      _userPaused = false;
+      await _playCurrent();
+      return;
+    }
+    if (_lastState == PlayerState.playing) {
+      _userPaused = true;
+      await _player.pause();
+    } else {
+      _userPaused = false;
+      try {
+        await _player.resume();
+      } catch (_) {
+        await _playCurrent();
+      }
+    }
+    notifyListeners();
+  }
+
   /// Tenta tocar a faixa atual da ordem embaralhada. Se falhar (arquivo
-  /// faltando, por exemplo — nem todas as 10 faixas estão entregues),
-  /// avança e tenta a próxima. Para depois de uma volta completa pra
-  /// evitar loop infinito caso nenhuma faixa esteja disponível.
+  /// faltando, por exemplo), avança e tenta a próxima. Para depois de
+  /// uma volta completa pra evitar loop infinito.
   Future<void> _playCurrent() async {
     if (_playOrder.isEmpty) return;
     for (var attempts = 0; attempts < _playOrder.length; attempts++) {
       final idx = _playOrder[_playIndex];
       try {
+        // Stop antes garante reset limpo — fix de glitch no web onde
+        // play() consecutivo sem stop não dispara onComplete.
+        await _player.stop();
         await _player.play(AssetSource(tracks[idx]));
+        notifyListeners();
         return;
       } catch (e) {
         if (kDebugMode) debugPrint('Music pulada ${tracks[idx]}: $e');
@@ -116,9 +162,20 @@ class MusicService {
     }
   }
 
+  void _onPlayerStateChanged(PlayerState state) {
+    _lastState = state;
+    if (state == PlayerState.playing) {
+      _autoAdvanceArmed = true;
+    } else if (state == PlayerState.completed && _autoAdvanceArmed && _started) {
+      _autoAdvanceArmed = false;
+      unawaited(_playNext());
+    }
+    notifyListeners();
+  }
+
   Future<void> _playNext() async {
     _advanceIndex();
-    if (_settings.sound) {
+    if (_settings.sound && !_userPaused) {
       await _playCurrent();
     }
   }
@@ -126,7 +183,7 @@ class MusicService {
   void _onSettingsChanged() {
     if (!_initialized || !_started) return;
     if (_settings.sound) {
-      if (_player.state != PlayerState.playing) {
+      if (_lastState != PlayerState.playing && !_userPaused) {
         unawaited(_player.resume().catchError((_) => _playCurrent()));
       }
     } else {
@@ -134,9 +191,22 @@ class MusicService {
     }
   }
 
-  Future<void> dispose() async {
+  /// Faixa atual (1-indexed) pra exibir no widget. Retorna null se ainda
+  /// não começou a tocar nada.
+  int? get currentTrackNumber {
+    if (!_started || _playOrder.isEmpty) return null;
+    return _playOrder[_playIndex] + 1;
+  }
+
+  bool get isPlaying => _lastState == PlayerState.playing;
+  bool get hasStarted => _started;
+  int get totalTracks => tracks.length;
+
+  @override
+  void dispose() {
     _settings.removeListener(_onSettingsChanged);
-    await _completeSub?.cancel();
-    await _player.dispose();
+    unawaited(_stateSub?.cancel());
+    unawaited(_player.dispose());
+    super.dispose();
   }
 }
