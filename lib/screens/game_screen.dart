@@ -17,6 +17,7 @@ import '../widgets/board_widget.dart';
 import '../widgets/cosmic_backdrop.dart';
 import '../widgets/end_game_modal.dart';
 import '../widgets/game_header.dart';
+import '../widgets/music_indicator.dart';
 import '../widgets/player_tray.dart';
 
 class GameScreen extends StatelessWidget {
@@ -179,6 +180,11 @@ class _GameScreenBodyState extends State<_GameScreenBody> {
                     ),
                     const ActionBar(),
                   ],
+                ),
+                const Positioned(
+                  top: 12,
+                  right: 16,
+                  child: MusicIndicator(),
                 ),
                 if (_paused)
                   PauseModal(
